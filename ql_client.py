@@ -2,39 +2,13 @@ import httpx
 
 
 class QLClient:
-    def __init__(self, base_url, token=None, client_id=None, client_secret=None, host_header=None):
+    def __init__(self, base_url):
         self.base_url = base_url.rstrip("/")
-        self.token = token
-        self._headers = {"Host": host_header} if host_header else {}
-        self._client = httpx.Client(base_url=self.base_url, timeout=30, headers=self._headers)
-
-        if client_id and client_secret:
-            self.token = self._fetch_oauth_token(client_id, client_secret)
-
-        if self.token:
-            self._client.headers.update({"Authorization": f"Bearer {self.token}"})
+        self._client = httpx.Client(base_url=self.base_url, timeout=30)
 
     # ------------------------------------------------------------------
     # internal helpers
     # ------------------------------------------------------------------
-
-    def _fetch_oauth_token(self, client_id, client_secret):
-        try:
-            resp = httpx.get(
-                f"{self.base_url}/open/auth/token",
-                params={
-                    "client_id": client_id,
-                    "client_secret": client_secret,
-                },
-                headers=self._headers,
-                timeout=10,
-            )
-            data = resp.json()
-            if data.get("code") == 200:
-                return data.get("data", {}).get("token", "")
-            return ""
-        except Exception:
-            return ""
 
     def _get(self, path, params=None):
         resp = self._client.get(path, params=params)

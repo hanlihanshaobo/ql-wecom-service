@@ -26,10 +26,6 @@ class CallbackConfig:
 @dataclass
 class QLConfig:
     base_url: str = getenv("QL_BASE_URL", "http://127.0.0.1:5700")
-    token: str = getenv("QL_TOKEN", "")
-    client_id: str = getenv("QL_CLIENT_ID", "")
-    client_secret: str = getenv("QL_CLIENT_SECRET", "")
-    host: str = getenv("QL_HOST", "")
 
 
 @dataclass
