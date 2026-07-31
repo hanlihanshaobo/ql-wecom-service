@@ -28,11 +28,13 @@
 | AgentID | 应用管理 → 自建应用 |
 | Secret | 应用管理 → 自建应用 → 应用密钥 |
 
+设置开发者 → 企业可信 IP → 添加 VPS 公网 IP
+
 设置接收消息 → API 接收：
 - URL：`https://你的域名/wecom/callback`
 - Token：自定义字符串（如 `random_token_123`）
 - EncodingAESKey：随机生成（明文模式可跳过）
-- 加密模式：推荐明文模式（NORMAL），简单部署用 Nginx + TLS 即可
+- 加密模式：推荐明文模式（NORMAL），有 Nginx + TLS 即可
 
 ### 2. 配置文件
 
@@ -45,17 +47,18 @@ vim .env
 
 ```ini
 # 企业微信
-WE_COM_CORP_ID=wwb124c7b08d2b3aff
-WE_COM_AGENT_ID=1000009
-WE_COM_CORP_SECRET=你的应用密钥
-WE_COM_ENCODING_AES_KEY=你的AESKey（明文模式留空）
+WE_COM_CORP_ID=你的CorpID
+WE_COM_AGENT_ID=你的AgentID
+WE_COM_CORP_SECRET=你的应用Secret
+WE_COM_ENCODING_AES_KEY=你的EncodingAESKey（明文模式留空）
 WE_COM_ENCRYPT_MODE=NORMAL
 CALLBACK_HOST=https://你的域名
-CALLBACK_TOKEN=random_token_123
+CALLBACK_TOKEN=你的回调Token
 
 # 青龙面板 - 容器内必须用宿主机 IP（Docker 网桥网关）
 QL_BASE_URL=http://172.20.0.1:5700
-QL_TOKEN=你的青龙Token
+QL_CLIENT_ID=你的青龙ClientID
+QL_CLIENT_SECRET=你的青龙ClientSecret
 ```
 
 > ⚠️ `QL_BASE_URL` 在容器内**不能写 localhost**，容器内的 localhost 指向自身。需填写宿主机 Docker 网桥网关 IP。查看方法：
