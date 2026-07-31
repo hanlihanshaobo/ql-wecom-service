@@ -146,10 +146,64 @@ class QLClient:
             return data.get("data", "")
         return ""
 
-    # ---- 任务视图 (可选) ----
+    def get_cron_detail(self, cron_id=None):
+        """GET /crons/detail"""
+        data = self._get("/open/crons/detail")
+        if data.get("code") == 200:
+            result = data.get("data", {})
+            if isinstance(result, dict):
+                items = result.get("data", [])
+            elif isinstance(result, list):
+                items = result
+            else:
+                items = []
+            if cron_id is not None:
+                for item in items:
+                    if item.get("id") == cron_id:
+                        return item
+                return None
+            return items
+        return None if cron_id is not None else []
+
+    def add_cron_labels(self, ids, labels):
+        """POST /crons/labels  ids:[], labels:[]"""
+        return self._post("/open/crons/labels", data={"ids": ids, "labels": labels})
+
+    def delete_cron_labels(self, ids, labels):
+        """DELETE /crons/labels  ids:[], labels:[]"""
+        return self._delete("/open/crons/labels", data={"ids": ids, "labels": labels})
+
+    def import_crons(self):
+        """GET /crons/import"""
+        data = self._get("/open/crons/import")
+        return data.get("data", []) if data.get("code") == 200 else []
+
+    # ---- 任务视图 ----
     def list_cron_views(self):
         data = self._get("/open/crons/views")
         return data.get("data", []) if data.get("code") == 200 else []
+
+    def create_cron_view(self, view_data):
+        """view_data: {name, sorts?, filters?, filterRelation?}"""
+        return self._post("/open/crons/views", data=view_data)
+
+    def update_cron_view(self, view_data):
+        """view_data: {id, name, sorts?, filters?, filterRelation?}"""
+        return self._put("/open/crons/views", data=view_data)
+
+    def delete_cron_views(self, ids):
+        return self._delete("/open/crons/views", data=ids)
+
+    def move_cron_view(self, from_index, to_index, view_id):
+        return self._put("/open/crons/views/move", data={
+            "fromIndex": from_index, "toIndex": to_index, "id": view_id,
+        })
+
+    def disable_cron_views(self, ids):
+        return self._put("/open/crons/views/disable", data=ids)
+
+    def enable_cron_views(self, ids):
+        return self._put("/open/crons/views/enable", data=ids)
 
     # ==================================================================
     # 环境变量  /envs
@@ -192,6 +246,13 @@ class QLClient:
             "fromIndex": from_index,
             "toIndex": to_index,
         })
+
+    def upload_envs(self, file_path):
+        """POST /envs/upload multipart/form-data 上传 JSON 文件"""
+        with open(file_path, "rb") as f:
+            resp = self._client.post("/open/envs/upload", files={"env": f})
+            resp.raise_for_status()
+            return resp.json()
 
     # ==================================================================
     # 订阅管理  /subscriptions
@@ -240,6 +301,18 @@ class QLClient:
             return logs[:limit]
         return []
 
+    def create_subscription(self, sub_data):
+        """sub_data: {type, url, schedule_type, alias, ...}"""
+        return self._post("/open/subscriptions", data=sub_data)
+
+    def update_subscription_status(self, ids, status, pid=None, log_path=None):
+        body = {"ids": ids, "status": status}
+        if pid:
+            body["pid"] = pid
+        if log_path:
+            body["log_path"] = log_path
+        return self._put("/open/subscriptions/status", data=body)
+
     # ==================================================================
     # 脚本管理  /scripts
     # ==================================================================
@@ -280,6 +353,36 @@ class QLClient:
             body["path"] = path
         return self._delete("/open/scripts", data=body)
 
+    def create_script(self, filename, path=None, content=None):
+        """通过 JSON 创建脚本"""
+        body = {"filename": filename}
+        if path:
+            body["path"] = path
+        if content:
+            body["content"] = content
+        return self._post("/open/scripts", data=body)
+
+    def update_script(self, filename, content, path=None):
+        """PUT /scripts 更新脚本内容"""
+        body = {"filename": filename, "content": content}
+        if path:
+            body["path"] = path
+        return self._put("/open/scripts", data=body)
+
+    def download_script(self, filename, path=None):
+        """POST /scripts/download"""
+        body = {"filename": filename}
+        if path:
+            body["path"] = path
+        return self._post("/open/scripts/download", data=body)
+
+    def rename_script(self, filename, new_filename, path=None):
+        """PUT /scripts/rename"""
+        body = {"filename": filename, "newFilename": new_filename}
+        if path:
+            body["path"] = path
+        return self._put("/open/scripts/rename", data=body)
+
     # ==================================================================
     # 依赖管理  /dependencies
     # ==================================================================
@@ -290,6 +393,27 @@ class QLClient:
 
     def reinstall_dependency(self, dep_id):
         return self._put("/open/dependencies/reinstall", data=[dep_id])
+
+    def create_dependency(self, deps):
+        """deps: [{name, type, remark?}]"""
+        return self._post("/open/dependencies", data=deps)
+
+    def update_dependency(self, dep_item):
+        """dep_item: {id, name, type, remark?}"""
+        return self._put("/open/dependencies", data=dep_item)
+
+    def delete_dependencies(self, ids):
+        return self._delete("/open/dependencies", data=ids)
+
+    def force_delete_dependencies(self, ids):
+        return self._delete("/open/dependencies/force", data=ids)
+
+    def get_dependency(self, dep_id):
+        data = self._get(f"/open/dependencies/{dep_id}")
+        return data.get("data") if data.get("code") == 200 else None
+
+    def cancel_dependency(self, ids):
+        return self._put("/open/dependencies/cancel", data=ids)
 
     # ==================================================================
     # 系统管理  /system
@@ -325,6 +449,58 @@ class QLClient:
             "content": content,
         })
 
+    # ---- 系统配置 ----
+    def get_system_config(self):
+        data = self._get("/open/system/config")
+        return data.get("data") if data.get("code") == 200 else {}
+
+    def update_log_remove_frequency(self, frequency):
+        return self._put("/open/system/config/log-remove-frequency",
+                         data={"logRemoveFrequency": frequency})
+
+    def update_cron_concurrency(self, concurrency):
+        return self._put("/open/system/config/cron-concurrency",
+                         data={"cronConcurrency": concurrency})
+
+    def update_dependence_proxy(self, proxy):
+        return self._put("/open/system/config/dependence-proxy",
+                         data={"dependenceProxy": proxy})
+
+    def update_node_mirror(self, mirror):
+        return self._put("/open/system/config/node-mirror",
+                         data={"nodeMirror": mirror})
+
+    def update_python_mirror(self, mirror):
+        return self._put("/open/system/config/python-mirror",
+                         data={"pythonMirror": mirror})
+
+    def update_linux_mirror(self, mirror):
+        return self._put("/open/system/config/linux-mirror",
+                         data={"linuxMirror": mirror})
+
+    # ---- 系统操作 ----
+    def check_update(self):
+        return self._put("/open/system/update-check")
+
+    def update_system(self):
+        return self._put("/open/system/update")
+
+    def reload_system(self, reload_type=None):
+        body = {"type": reload_type} if reload_type else {}
+        return self._put("/open/system/reload", data=body)
+
+    def export_data(self):
+        return self._put("/open/system/data/export")
+
+    def import_data(self, file_path):
+        with open(file_path, "rb") as f:
+            resp = self._client.put("/open/system/data/import", files={"data": f})
+            resp.raise_for_status()
+            return resp.json()
+
+    def delete_system_log(self):
+        return self._delete("/open/system/log")
+
     # ==================================================================
     # 配置文件  /configs
     # ==================================================================
@@ -336,6 +512,20 @@ class QLClient:
     def get_config_detail(self, path):
         data = self._get("/open/configs/detail", params={"path": path})
         return data.get("data") if data.get("code") == 200 else None
+
+    def get_config_samples(self):
+        """GET /configs/sample"""
+        data = self._get("/open/configs/sample")
+        return data.get("data", []) if data.get("code") == 200 else []
+
+    def get_config_file(self, filename):
+        """GET /configs/:file"""
+        data = self._get(f"/open/configs/{filename}")
+        return data.get("data") if data.get("code") == 200 else None
+
+    def save_config(self, name, content):
+        """POST /configs/save"""
+        return self._post("/open/configs/save", data={"name": name, "content": content})
 
     # ==================================================================
     # 日志管理  /logs
@@ -353,3 +543,20 @@ class QLClient:
             params["file"] = file
         data = self._get("/open/logs/detail", params=params)
         return data.get("data") if data.get("code") == 200 else None
+
+    def get_log_file(self, filename, path=None):
+        """GET /logs/:file"""
+        params = {}
+        if path:
+            params["path"] = path
+        data = self._get(f"/open/logs/{filename}", params=params)
+        return data.get("data") if data.get("code") == 200 else None
+
+    def delete_logs(self, filename, path=None, log_type=None):
+        """DELETE /logs/"""
+        body = {"filename": filename}
+        if path:
+            body["path"] = path
+        if log_type:
+            body["type"] = log_type
+        return self._delete("/open/logs", data=body)

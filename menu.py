@@ -9,7 +9,7 @@ import httpx
 
 from commands import (
     list_tasks, list_envs, list_subscriptions, list_scripts,
-    system_info, help_text,
+    system_info, help_text, _list_deps,
 )
 
 logger = logging.getLogger("wecom")
@@ -46,6 +46,7 @@ MENU = {
                 {"type": "click", "name": "设置变量", "key": "ql_env_set"},
                 {"type": "click", "name": "发送通知", "key": "ql_notify"},
                 {"type": "click", "name": "删除任务", "key": "ql_task_delete"},
+                {"type": "click", "name": "依赖列表", "key": "ql_dep_list"},
                 {"type": "click", "name": "使用帮助", "key": "ql_help"},
             ],
         },
@@ -122,6 +123,7 @@ def handle_menu_click(event_key: str, ql_client) -> str | None:
             "🔔 发送通知格式：\n通知 <标题>=<内容>\n\n"
             "示例：通知 备份完成=数据库备份已成功"
         ),
+        "ql_dep_list": lambda: _list_deps(ql_client),
         "ql_help": lambda: help_text(),
     }
 

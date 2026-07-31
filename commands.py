@@ -79,6 +79,74 @@ def process_command(cmd: str, ql: QLClient) -> str:
     # ---- 脚本 ----
     if action in ("脚本", "脚本列表", "scripts"):
         return list_scripts(arg, ql)
+    if action in ("脚本详情", "script_detail"):
+        if not arg:
+            return "格式：脚本详情 <文件名> [路径]"
+        return _script_detail(arg, ql)
+    if action in ("运行脚本", "run_script"):
+        if not arg:
+            return "格式：运行脚本 <文件名> [路径]"
+        return _run_script(arg, ql)
+    if action in ("停止脚本", "stop_script"):
+        if not arg:
+            return "格式：停止脚本 <文件名> [路径]"
+        return _stop_script(arg, ql)
+    if action in ("删除脚本", "del_script"):
+        if not arg:
+            return "格式：删除脚本 <文件名> [路径]"
+        return _del_script(arg, ql)
+    if action in ("重命名脚本", "rename_script"):
+        if not arg:
+            return "格式：重命名脚本 <原文件名> <新文件名> [路径]"
+        return _rename_script(arg, ql)
+
+    # ---- 依赖 ----
+    if action in ("依赖", "依赖列表", "deps"):
+        return _list_deps(ql)
+    if action in ("依赖详情", "dep_detail"):
+        if not arg:
+            return "请指定依赖ID，例如：依赖详情 1"
+        return _dep_detail(arg, ql)
+    if action in ("安装依赖", "add_dep"):
+        if not arg:
+            return "格式：安装依赖 <名称> <类型> [备注]\n类型: 0=NodeJs 1=Python3 2=Linux"
+        return _add_dep(arg, ql)
+    if action in ("删依赖", "del_dep"):
+        if not arg:
+            return "请指定依赖ID，例如：删依赖 5"
+        return _del_dep(arg, ql)
+    if action in ("重装依赖", "reinstall_dep"):
+        if not arg:
+            return "请指定依赖ID，例如：重装依赖 5"
+        return _reinstall_dep(arg, ql)
+
+    # ---- 配置 ----
+    if action in ("配置", "配置列表", "configs"):
+        return _list_configs(ql)
+    if action in ("查看配置", "config_detail"):
+        if not arg:
+            return "请指定配置路径，例如：查看配置 config.sh"
+        return _config_detail(arg, ql)
+
+    # ---- 日志管理 ----
+    if action in ("系统日志", "sys_log"):
+        return _system_log(arg, ql)
+
+    # ---- 系统操作 ----
+    if action in ("系统配置", "sys_config"):
+        return _sys_config(ql)
+    if action in ("检查更新", "check_update"):
+        return _check_update(ql)
+    if action in ("更新系统", "update_system"):
+        return _update_system(ql)
+    if action in ("重载系统", "reload_system"):
+        return _reload_system(ql)
+    if action in ("清系统日志", "clear_sys_log"):
+        return _clear_sys_log(ql)
+
+    # ---- 导出数据 ----
+    if action in ("导出数据", "export_data"):
+        return _export_data(ql)
 
     return help_text()
 
@@ -361,6 +429,215 @@ def list_scripts(path: str, ql: QLClient) -> str:
     return "\n".join(lines)
 
 
+# ==================== 脚本指令补充 ====================
+
+def _script_detail(arg: str, ql: QLClient) -> str:
+    parts = arg.rsplit(None, 1)
+    filename = parts[0]
+    path = parts[1] if len(parts) > 1 else None
+    detail = ql.get_script_detail(filename, path)
+    if not detail:
+        return f"未找到脚本：{filename}"
+    lines = [f"📜 {filename}"]
+    for k, v in detail.items():
+        if isinstance(v, str) and len(v) > 200:
+            v = v[:200] + "..."
+        lines.append(f"  {k}: {v}")
+    return "\n".join(lines)
+
+
+def _run_script(arg: str, ql: QLClient) -> str:
+    parts = arg.rsplit(None, 1)
+    filename = parts[0]
+    path = parts[1] if len(parts) > 1 else None
+    result = ql.run_script(filename, path)
+    if result.get("code") == 200:
+        return f"✅ 已运行脚本：{filename}"
+    return f"❌ 运行失败"
+
+
+def _stop_script(arg: str, ql: QLClient) -> str:
+    parts = arg.rsplit(None, 1)
+    filename = parts[0]
+    path = parts[1] if len(parts) > 1 else None
+    result = ql.stop_script(filename, path)
+    if result.get("code") == 200:
+        return f"🛑 已停止脚本：{filename}"
+    return f"❌ 停止失败"
+
+
+def _del_script(arg: str, ql: QLClient) -> str:
+    parts = arg.rsplit(None, 1)
+    filename = parts[0]
+    path = parts[1] if len(parts) > 1 else None
+    result = ql.delete_script(filename, path)
+    if result.get("code") == 200:
+        return f"🗑 已删除脚本：{filename}"
+    return f"❌ 删除失败"
+
+
+def _rename_script(arg: str, ql: QLClient) -> str:
+    tokens = arg.split()
+    if len(tokens) < 2:
+        return "格式：重命名脚本 <原文件名> <新文件名> [路径]"
+    filename, new_filename = tokens[0], tokens[1]
+    path = tokens[2] if len(tokens) > 2 else None
+    result = ql.rename_script(filename, new_filename, path)
+    if result.get("code") == 200:
+        return f"✅ 已重命名：{filename} → {new_filename}"
+    return f"❌ 重命名失败"
+
+
+# ==================== 依赖指令 ====================
+
+def _list_deps(ql: QLClient) -> str:
+    deps = ql.list_dependencies()
+    if not deps:
+        return "暂无依赖"
+    type_map = {0: "NodeJs", 1: "Python3", 2: "Linux"}
+    lines = [f"📦 依赖列表（共 {len(deps)} 个）："]
+    for d in deps:
+        did = d.get("id", "")
+        name = d.get("name", "未知")
+        dtype = type_map.get(d.get("type"), str(d.get("type", "")))
+        status = d.get("status", -1)
+        tag = "✅" if status == 1 else "⛔"
+        lines.append(f"{tag} [{did}] {name} ({dtype})")
+    return "\n".join(lines)
+
+
+def _dep_detail(arg: str, ql: QLClient) -> str:
+    try:
+        dep_id = int(arg)
+    except ValueError:
+        return f"无效的ID：{arg}"
+    dep = ql.get_dependency(dep_id)
+    if not dep:
+        return f"未找到依赖 ID：{dep_id}"
+    type_map = {0: "NodeJs", 1: "Python3", 2: "Linux"}
+    return (
+        f"📦 依赖详情：\n"
+        f"  ID: {dep.get('id')}\n"
+        f"  名称: {dep.get('name')}\n"
+        f"  类型: {type_map.get(dep.get('type'), dep.get('type'))}\n"
+        f"  备注: {dep.get('remark', '')}\n"
+        f"  状态: {'启用' if dep.get('status') == 1 else '禁用'}"
+    )
+
+
+def _add_dep(arg: str, ql: QLClient) -> str:
+    parts = arg.split(None, 2)
+    if len(parts) < 2:
+        return "格式：安装依赖 <名称> <类型> [备注]\n类型: 0=NodeJs 1=Python3 2=Linux"
+    name = parts[0]
+    try:
+        dtype = int(parts[1])
+    except ValueError:
+        return f"类型须为数字：0=NodeJs 1=Python3 2=Linux，得到：{parts[1]}"
+    remark = parts[2] if len(parts) > 2 else ""
+    result = ql.create_dependency([{"name": name, "type": dtype, "remark": remark}])
+    if result.get("code") == 200:
+        return f"✅ 已创建依赖：{name}"
+    return f"❌ 创建失败"
+
+
+def _del_dep(arg: str, ql: QLClient) -> str:
+    try:
+        ids = [int(x.strip()) for x in arg.split(",")]
+    except ValueError:
+        return f"无效的ID：{arg}"
+    result = ql.delete_dependencies(ids)
+    return f"✅ 已删除依赖 ID：{ids}" if result.get("code") == 200 else f"❌ 删除失败"
+
+
+def _reinstall_dep(arg: str, ql: QLClient) -> str:
+    try:
+        ids = [int(x.strip()) for x in arg.split(",")]
+    except ValueError:
+        return f"无效的ID：{arg}"
+    result = ql.reinstall_dependency(ids)
+    return f"✅ 已触发重装 ID：{ids}" if result.get("code") == 200 else f"❌ 重装失败"
+
+
+# ==================== 配置指令 ====================
+
+def _list_configs(ql: QLClient) -> str:
+    configs = ql.list_configs()
+    if not configs:
+        return "暂无配置文件"
+    lines = [f"⚙ 配置文件列表（共 {len(configs)} 个）："]
+    for c in configs:
+        lines.append(f"  · {c.get('title', c.get('value', '未知'))}")
+    return "\n".join(lines)
+
+
+def _config_detail(arg: str, ql: QLClient) -> str:
+    detail = ql.get_config_detail(arg)
+    if not detail:
+        return f"未找到配置文件：{arg}"
+    content = str(detail)
+    if len(content) > 500:
+        content = content[:500] + "..."
+    return f"⚙ {arg}：\n{content}"
+
+
+# ==================== 系统指令补充 ====================
+
+def _system_log(arg: str, ql: QLClient) -> str:
+    log = ql.get_system_log()
+    if not log:
+        return "暂无系统日志"
+    content = str(log)
+    if len(content) > 1000:
+        content = content[-1000:]
+    return f"📋 系统日志：\n{content}"
+
+
+def _sys_config(ql: QLClient) -> str:
+    cfg = ql.get_system_config()
+    if not cfg:
+        return "获取系统配置失败"
+    lines = ["⚙ 系统配置："]
+    for k, v in cfg.items():
+        lines.append(f"  {k}: {v}")
+    return "\n".join(lines)
+
+
+def _check_update(ql: QLClient) -> str:
+    result = ql.check_update()
+    if result.get("code") == 200:
+        return f"✅ 检查更新完成：{result.get('data', '')}"
+    return "❌ 检查更新失败"
+
+
+def _update_system(ql: QLClient) -> str:
+    result = ql.update_system()
+    if result.get("code") == 200:
+        return "✅ 系统更新已触发"
+    return "❌ 更新失败"
+
+
+def _reload_system(ql: QLClient) -> str:
+    result = ql.reload_system()
+    if result.get("code") == 200:
+        return "✅ 系统已重载"
+    return "❌ 重载失败"
+
+
+def _clear_sys_log(ql: QLClient) -> str:
+    result = ql.delete_system_log()
+    if result.get("code") == 200:
+        return "✅ 系统日志已清空"
+    return "❌ 清空失败"
+
+
+def _export_data(ql: QLClient) -> str:
+    result = ql.export_data()
+    if result.get("code") == 200:
+        return f"✅ 数据导出完成：{result.get('data', '')}"
+    return "❌ 导出失败"
+
+
 # ==================== 帮助 ====================
 
 def help_text() -> str:
@@ -388,7 +665,28 @@ def help_text() -> str:
         "  运行订阅 <订阅名>\n"
         "── 脚本 ──\n"
         "  脚本 / 脚本列表\n"
+        "  脚本详情 <文件名> [路径]\n"
+        "  运行脚本 <文件名> [路径]\n"
+        "  停止脚本 <文件名> [路径]\n"
+        "  删除脚本 <文件名> [路径]\n"
+        "  重命名脚本 <原名> <新名> [路径]\n"
+        "── 依赖 ──\n"
+        "  依赖 / 依赖列表\n"
+        "  依赖详情 <ID>\n"
+        "  安装依赖 <名称> <类型> [备注]\n"
+        "  删依赖 <ID>\n"
+        "  重装依赖 <ID>\n"
+        "── 配置 ──\n"
+        "  配置 / 配置列表\n"
+        "  查看配置 <路径>\n"
         "── 系统 ──\n"
         "  系统\n"
+        "  系统配置\n"
+        "  系统日志\n"
+        "  清系统日志\n"
+        "  检查更新\n"
+        "  更新系统\n"
+        "  重载系统\n"
+        "  导出数据\n"
         "  通知 <标题>=<内容>"
     )
