@@ -616,7 +616,7 @@ def run_custom_script(ql: QLClient) -> str:
         return f"❌ 执行脚本失败：{e}"
 
     if result.get("code") == 200:
-        return f"✅ 已运行自定义脚本：{filename}"
+        return f"✅ 已执行{settings.bot.custom_script_button_name}脚本"
     return f"❌ 运行失败：{result.get('msg', '未知错误')}"
 
 

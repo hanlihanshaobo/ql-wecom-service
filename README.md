@@ -63,7 +63,7 @@ QL_CLIENT_SECRET=你的青龙ClientSecret
 # 自定义脚本（可选）：点击菜单按钮一键运行指定脚本
 CUSTOM_SCRIPT_FILENAME=my_script.py
 CUSTOM_SCRIPT_PATH=scripts   # 脚本所在子目录，根目录则留空
-CUSTOM_SCRIPT_BUTTON_NAME=VPN自动登录   # 菜单按钮显示的文字
+CUSTOM_SCRIPT_BUTTON_NAME=论坛签到   # 菜单按钮显示的文字
 ```
 
 > ⚠️ `QL_BASE_URL` 在容器内**不能写 localhost**，容器内的 localhost 指向自身。需填写宿主机 Docker 网桥网关 IP。查看方法：
