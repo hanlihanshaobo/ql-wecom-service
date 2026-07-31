@@ -284,9 +284,11 @@ def _get_logs(name: str, ql: QLClient) -> str:
         lines.append("（无日志内容）")
 
     lines.append(f"\n📑 历史日志文件（共 {len(log_files)} 个）：")
-    for f in log_files[:5]:
+    for f in log_files[:30]:
         filename = f.get("filename", "未知")
         lines.append(f"  · {filename}")
+    if len(log_files) > 30:
+        lines.append(f"  ... 还有 {len(log_files) - 30} 个")
 
     return "\n".join(lines)
 
