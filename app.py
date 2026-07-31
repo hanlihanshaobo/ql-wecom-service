@@ -130,19 +130,23 @@ async def wecom_callback(request: Request):
 
     ql = _get_ql()
 
-    # 处理菜单点击事件
-    if msg_type == "event" and event == "click" and event_key:
-        result = handle_menu_click(event_key, ql)
-        if result:
-            logger.info(f"菜单点击: key={event_key}, 回复长度={len(result)}")
+    try:
+        # 处理菜单点击事件
+        if msg_type == "event" and event == "click" and event_key:
+            result = handle_menu_click(event_key, ql)
+            if result:
+                logger.info(f"菜单点击: key={event_key}, 回复长度={len(result)}")
+            else:
+                result = f"未知菜单: {event_key}"
+        elif content:
+            result = process_command(content, ql)
+            logger.info(f"处理结果: {result[:100] if result else 'EMPTY'}")
         else:
-            result = f"未知菜单: {event_key}"
-    elif content:
-        result = process_command(content, ql)
-        logger.info(f"处理结果: {result[:100] if result else 'EMPTY'}")
-    else:
-        logger.info("消息内容为空且非菜单事件，跳过")
-        return {"errcode": 0, "errmsg": "ok"}
+            logger.info("消息内容为空且非菜单事件，跳过")
+            return {"errcode": 0, "errmsg": "ok"}
+    except Exception as e:
+        logger.error(f"处理消息异常: {e}")
+        result = f"❌ 操作失败：{e}\n\n请检查青龙面板连接是否正常"
 
     if from_user and result:
         success = _send_text(from_user, result)
