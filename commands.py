@@ -1,4 +1,5 @@
 from ql_client import QLClient
+from settings import settings
 
 
 def process_command(cmd: str, ql: QLClient) -> str:
@@ -115,6 +116,10 @@ def process_command(cmd: str, ql: QLClient) -> str:
         if not arg:
             return "格式：重命名脚本 <原文件名> <新文件名> [路径]"
         return _rename_script(arg, ql)
+
+    # ---- 自定义脚本 ----
+    if action in ("自定义脚本", "run_custom"):
+        return run_custom_script(ql)
 
     # ---- 依赖 ----
     if action in ("依赖", "依赖列表", "deps"):
@@ -556,6 +561,20 @@ def _rename_script(arg: str, ql: QLClient) -> str:
     if result.get("code") == 200:
         return f"✅ 已重命名：{filename} → {new_filename}"
     return f"❌ 重命名失败"
+
+
+# ==================== 自定义脚本 ====================
+
+def run_custom_script(ql: QLClient) -> str:
+    """运行 .env 中 CUSTOM_SCRIPT_FILENAME 指定的脚本"""
+    filename = settings.bot.custom_script_filename
+    if not filename:
+        return "⚠ 未配置自定义脚本，请在 .env 中设置 CUSTOM_SCRIPT_FILENAME"
+    path = settings.bot.custom_script_path or None
+    result = ql.run_script(filename, path)
+    if result.get("code") == 200:
+        return f"✅ 已运行自定义脚本：{filename}"
+    return f"❌ 运行失败：{result.get('msg', '未知错误')}"
 
 
 # ==================== 依赖指令 ====================

@@ -9,7 +9,7 @@ import httpx
 
 from commands import (
     list_tasks, list_envs, list_subscriptions, list_scripts,
-    system_info, help_text, _list_deps,
+    system_info, help_text, _list_deps, run_custom_script,
 )
 
 logger = logging.getLogger("wecom")
@@ -44,7 +44,7 @@ MENU = {
             "name": "更多设置",
             "sub_button": [
                 {"type": "click", "name": "设置变量", "key": "ql_env_set"},
-                {"type": "click", "name": "发送通知", "key": "ql_notify"},
+                {"type": "click", "name": "执行自定义脚本", "key": "ql_run_custom"},
                 {"type": "click", "name": "删除任务", "key": "ql_task_delete"},
                 {"type": "click", "name": "依赖列表", "key": "ql_dep_list"},
                 {"type": "click", "name": "使用帮助", "key": "ql_help"},
@@ -119,10 +119,7 @@ def handle_menu_click(event_key: str, ql_client) -> str | None:
             "➕ 设置变量格式：\n设变量 <名称>=<值> [备注]\n\n"
             "示例：设变量 MY_KEY=abc123 这是一个测试变量"
         ),
-        "ql_notify": lambda: (
-            "🔔 发送通知格式：\n通知 <标题>=<内容>\n\n"
-            "示例：通知 备份完成=数据库备份已成功"
-        ),
+        "ql_run_custom": lambda: run_custom_script(ql_client),
         "ql_dep_list": lambda: _list_deps(ql_client),
         "ql_help": lambda: help_text(),
     }

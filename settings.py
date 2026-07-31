@@ -35,6 +35,8 @@ class QLConfig:
 class BotConfig:
     prefix: str = getenv("BOT_PREFIX", "")
     name: str = getenv("BOT_NAME", "QinglongBot")
+    custom_script_filename: str = getenv("CUSTOM_SCRIPT_FILENAME", "")
+    custom_script_path: str = getenv("CUSTOM_SCRIPT_PATH", "")
 
 
 @dataclass
