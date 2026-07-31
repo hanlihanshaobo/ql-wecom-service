@@ -134,6 +134,7 @@ server {
     ssl_certificate     /etc/letsencrypt/live/你的域名/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/你的域名/privkey.pem;
 
+    # 企业微信回调
     location /wecom/callback {
         proxy_pass http://127.0.0.1:3000;
         proxy_set_header Host $host;
@@ -141,8 +142,35 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
+
+    # 代理企业微信 API（解决家庭网络 IP 不在白名单的问题） 可选
+    location /cgi-bin/ {
+        proxy_pass https://qyapi.weixin.qq.com;
+        proxy_ssl_server_name on;
+        proxy_set_header Host qyapi.weixin.qq.com;
+    }
 }
 ```
+
+### 解决青龙通知 60020 错误（家庭网络场景）
+
+如果青龙面板部署在家庭内网（动态 IP），无法加入企业微信可信 IP 白名单，通知会报错：
+
+```
+{"errcode":60020,"errmsg":"not allow to access from your ip"}
+```
+
+**解决方案**：利用 VPS 固定 IP 做代理中转。
+
+1. 确保 VPS 的 IP 已加入企业微信应用 → **企业可信 IP**
+2. Nginx 配置已包含上述 `/cgi-bin/` 代理（见上方配置）
+3. 青龙面板通知设置中填写：
+
+```
+weWorkOrigin = https://你的域名
+```
+
+> 原理：青龙通知请求 → VPS Nginx（固定 IP，白名单内）→ 企微 API，绕过家庭动态 IP 限制。
 
 ## 开发
 
