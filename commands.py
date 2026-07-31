@@ -290,7 +290,7 @@ def _status(name: str, ql: QLClient) -> str:
     cron = ql.get_cron_by_name(name)
     if not cron:
         return f"未找到任务：{name}"
-    status_map = {0: "已暂停", 1: "运行中", 2: "队列中"}
+    status_map = {0: "已禁用", 1: "已启用"}
     st = status_map.get(cron.get("status"), str(cron.get("status")))
     lines = [f"📌 {name}"]
     lines.append(f"   状态: {st}")
