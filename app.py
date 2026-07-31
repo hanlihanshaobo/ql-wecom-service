@@ -1,4 +1,5 @@
 import logging
+import time
 import httpx
 from fastapi import FastAPI, Request, Query
 from fastapi.responses import PlainTextResponse
@@ -37,14 +38,25 @@ def _get_ql() -> QLClient:
     )
 
 
+_token_cache: dict = {"token": "", "expires": 0}
+
+
 def _get_access_token() -> str:
+    """获取企业微信 access_token，内置缓存（提前 5 分钟刷新）"""
+    now = time.time()
+    if _token_cache["token"] and now < _token_cache["expires"] - 300:
+        return _token_cache["token"]
+
     url = "https://qyapi.weixin.qq.com/cgi-bin/gettoken"
     params = {"corpid": settings.wecom.corp_id, "corpsecret": settings.wecom.corp_secret}
     try:
         resp = httpx.get(url, params=params, timeout=10)
         data = resp.json()
         token = data.get("access_token", "")
-        if not token:
+        if token:
+            _token_cache["token"] = token
+            _token_cache["expires"] = now + data.get("expires_in", 7200)
+        else:
             logger.error(f"获取token失败: {data}")
         return token
     except Exception as e:
@@ -117,7 +129,7 @@ async def wecom_callback(request: Request):
         if ret != 0:
             logger.error(f"解密失败: ret={ret}")
             return {"errcode": ret, "errmsg": "decrypt failed"}
-        logger.info(f"解密成功, msg前200字符: {msg[:200]}")
+        logger.info(f"解密成功, msg类型: {msg[:20]}")
 
     info = parse_qyxml(msg)
     content = info.get("content", "").strip()

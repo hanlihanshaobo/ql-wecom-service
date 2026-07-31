@@ -1,5 +1,6 @@
 import hashlib
 import logging
+import random
 import struct
 import xml.etree.ElementTree as ET
 from base64 import b64decode, b64encode
