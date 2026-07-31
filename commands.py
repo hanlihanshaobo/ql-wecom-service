@@ -576,7 +576,8 @@ def run_custom_script(ql: QLClient) -> str:
     scripts = ql.list_scripts(path=path)
     target = None
     for s in scripts:
-        if s.get("filename", s.get("name", "")) == filename:
+        s_name = s.get("title", s.get("filename", s.get("name", "")))
+        if s_name == filename:
             target = s
             break
     if not target:

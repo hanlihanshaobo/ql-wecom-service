@@ -340,7 +340,13 @@ class QLClient:
         if path:
             params["path"] = path
         data = self._get("/open/scripts", params=params)
-        return data.get("data", []) if data.get("code") == 200 else []
+        if data.get("code") != 200:
+            return []
+        result = data.get("data", [])
+        # 有些青龙版本 data 又包了一层 {data: [...], total: N}
+        if isinstance(result, dict):
+            result = result.get("data", [])
+        return result if isinstance(result, list) else []
 
     def get_script_detail(self, file, path=None):
         params = {"file": file}
