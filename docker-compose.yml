@@ -1,6 +1,6 @@
 services:
   ql-wecom:
-    image: ghcr.io/YOUR_USERNAME/ql-wecom-service:latest
+    image: ghcr.io/hanlihanshaobo/ql-wecom-service:latest
     container_name: ql-wecom
     restart: unless-stopped
     ports:
