@@ -1,0 +1,14 @@
+services:
+  ql-wecom:
+    image: ghcr.io/YOUR_USERNAME/ql-wecom-service:latest
+    container_name: ql-wecom
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    env_file:
+      - .env
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: 3
