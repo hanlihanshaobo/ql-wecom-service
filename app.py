@@ -7,11 +7,25 @@ from settings import settings
 from ql_client import QLClient
 from vl import WXBizMsgCrypt, parse_qyxml
 from commands import process_command
+from menu import create_menu, handle_menu_click
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("wecom")
 
 app = FastAPI(title="Qinglong-WeCom Bridge")
+
+
+@app.on_event("startup")
+def _setup_menu():
+    """启动时自动创建/更新企业微信应用菜单"""
+    try:
+        create_menu(
+            corp_id=settings.wecom.corp_id,
+            agent_id=settings.wecom.agent_id,
+            secret=settings.wecom.corp_secret,
+        )
+    except Exception as e:
+        logger.error(f"菜单初始化失败: {e}")
 
 
 def _get_ql() -> QLClient:
@@ -109,17 +123,28 @@ async def wecom_callback(request: Request):
     info = parse_qyxml(msg)
     content = info.get("content", "").strip()
     from_user = info.get("from_user", "")
-    logger.info(f"收到消息: from={from_user}, content={content}, type={info.get('msg_type')}")
-
-    if not content:
-        logger.info("消息内容为空，跳过")
-        return {"errcode": 0, "errmsg": "ok"}
+    msg_type = info.get("msg_type", "")
+    event = info.get("event", "")
+    event_key = info.get("event_key", "")
+    logger.info(f"收到消息: from={from_user}, type={msg_type}, event={event}, key={event_key}, content={content}")
 
     ql = _get_ql()
-    result = process_command(content, ql)
-    logger.info(f"处理结果: {result[:100] if result else 'EMPTY'}")
 
-    if from_user:
+    # 处理菜单点击事件
+    if msg_type == "event" and event == "click" and event_key:
+        result = handle_menu_click(event_key, ql)
+        if result:
+            logger.info(f"菜单点击: key={event_key}, 回复长度={len(result)}")
+        else:
+            result = f"未知菜单: {event_key}"
+    elif content:
+        result = process_command(content, ql)
+        logger.info(f"处理结果: {result[:100] if result else 'EMPTY'}")
+    else:
+        logger.info("消息内容为空且非菜单事件，跳过")
+        return {"errcode": 0, "errmsg": "ok"}
+
+    if from_user and result:
         success = _send_text(from_user, result)
         logger.info(f"发送结果: {'成功' if success else '失败'}")
 
