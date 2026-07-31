@@ -343,10 +343,16 @@ class QLClient:
         if data.get("code") != 200:
             return []
         result = data.get("data", [])
-        # 有些青龙版本 data 又包了一层 {data: [...], total: N}
+        # 青龙不同版本返回格式：
+        #   v1: {"data": [script_dict, ...]}
+        #   v2: {"data": {"data": [...], "dirs": [...], "files": [...], "total": N}}
         if isinstance(result, dict):
-            result = result.get("data", [])
-        return result if isinstance(result, list) else []
+            # 优先取 files，其次 data
+            result = result.get("files", result.get("data", []))
+        if not isinstance(result, list):
+            return []
+        # 过滤掉非 dict 的元素（如 int），只保留脚本对象
+        return [s for s in result if isinstance(s, dict)]
 
     def get_script_detail(self, file, path=None):
         params = {"file": file}

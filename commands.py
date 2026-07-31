@@ -1,5 +1,8 @@
+import logging
 from ql_client import QLClient
 from settings import settings
+
+logger = logging.getLogger("wecom")
 
 
 def process_command(cmd: str, ql: QLClient) -> str:
@@ -573,22 +576,48 @@ def run_custom_script(ql: QLClient) -> str:
     path = settings.bot.custom_script_path or None
 
     # 先查找脚本是否存在于青龙列表（传入 path 以搜索子目录）
-    scripts = ql.list_scripts(path=path)
+    try:
+        scripts = ql.list_scripts(path=path)
+    except Exception as e:
+        logger.error(f"list_scripts 失败: {e}")
+        return f"❌ 获取脚本列表失败：{e}"
+
+    if not scripts:
+        loc = path or "根目录"
+        logger.info(f"在 {loc} 中未找到任何脚本")
+        return f"❌ 在 {loc} 中未找到任何脚本，请检查路径配置"
+
     target = None
     for s in scripts:
-        s_name = s.get("title", s.get("filename", s.get("name", "")))
-        if s_name == filename:
-            target = s
-            break
+        try:
+            s_name = s.get("title", s.get("filename", s.get("name", "")))
+            if s_name == filename:
+                target = s
+                break
+        except Exception:
+            continue
     if not target:
         loc = path or "根目录"
-        return f"❌ 未找到脚本：{filename}\n已在 {loc} 搜索，请确认脚本存在于青龙面板"
+        found_names = []
+        for s in scripts:
+            try:
+                found_names.append(s.get("title", s.get("filename", s.get("name", "?"))))
+            except Exception:
+                found_names.append("?")
+        logger.info(f"脚本未找到，期望: {filename}，目录: {loc}，实际列表: {found_names[:10]}")
+        return f"❌ 未找到脚本：{filename}\n目录 {loc} 中的脚本：{', '.join(found_names[:20])}"
 
-    result = ql.run_script(filename, path)
+    try:
+        result = ql.run_script(filename, path)
+    except Exception as e:
+        logger.error(f"run_script 失败: {e}")
+        return f"❌ 执行脚本失败：{e}"
+
     if result.get("code") == 200:
         data = result.get("data", {})
-        # 有些版本返回 data 里有执行结果
-        msg = data.get("message", "") or result.get("msg", "")
+        msg = ""
+        if isinstance(data, dict):
+            msg = data.get("message", "")
         return f"✅ 已运行自定义脚本：{filename}" + (f"\n{msg}" if msg else "")
     return f"❌ 运行失败：{result.get('msg', '未知错误')}"
 
