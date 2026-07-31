@@ -571,9 +571,24 @@ def run_custom_script(ql: QLClient) -> str:
     if not filename:
         return "⚠ 未配置自定义脚本，请在 .env 中设置 CUSTOM_SCRIPT_FILENAME"
     path = settings.bot.custom_script_path or None
+
+    # 先查找脚本是否存在于青龙列表（传入 path 以搜索子目录）
+    scripts = ql.list_scripts(path=path)
+    target = None
+    for s in scripts:
+        if s.get("filename", s.get("name", "")) == filename:
+            target = s
+            break
+    if not target:
+        loc = path or "根目录"
+        return f"❌ 未找到脚本：{filename}\n已在 {loc} 搜索，请确认脚本存在于青龙面板"
+
     result = ql.run_script(filename, path)
     if result.get("code") == 200:
-        return f"✅ 已运行自定义脚本：{filename}"
+        data = result.get("data", {})
+        # 有些版本返回 data 里有执行结果
+        msg = data.get("message", "") or result.get("msg", "")
+        return f"✅ 已运行自定义脚本：{filename}" + (f"\n{msg}" if msg else "")
     return f"❌ 运行失败：{result.get('msg', '未知错误')}"
 
 
