@@ -499,11 +499,11 @@ def list_scripts(path: str, ql: QLClient) -> str:
     if not scripts:
         return "暂无脚本"
     lines = [f"📜 脚本列表（共 {len(scripts)} 个）："]
-    for s in scripts[:20]:
+    for s in scripts[:50]:
         name = s.get("title", s.get("name", "未知"))
         lines.append(f"  · {name}")
-    if len(scripts) > 20:
-        lines.append(f"  ... 还有 {len(scripts) - 20} 个")
+    if len(scripts) > 50:
+        lines.append(f"  ... 还有 {len(scripts) - 50} 个")
     return "\n".join(lines)
 
 
