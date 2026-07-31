@@ -90,6 +90,7 @@ class WXBizMsgCrypt:
             cipher = AES.new(self._aes_key, AES.MODE_CBC, self._aes_key[:16])
             decrypted = cipher.decrypt(raw)
             logger.info(f"AES解密后前32字节hex: {decrypted[:32].hex()}")
+            logger.info(f"AES解密后最后32字节hex: {decrypted[-32:].hex()}")
             decrypted = unpad(decrypted, AES.block_size)
         except Exception as e:
             logger.error(f"AES解密/去填充失败: {type(e).__name__}: {e}")
