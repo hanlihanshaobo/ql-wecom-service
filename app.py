@@ -20,6 +20,7 @@ def _get_ql() -> QLClient:
         token=settings.ql.token or None,
         client_id=settings.ql.client_id or None,
         client_secret=settings.ql.client_secret or None,
+        host_header=settings.ql.host or None,
     )
 
 

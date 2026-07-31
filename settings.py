@@ -29,6 +29,7 @@ class QLConfig:
     token: str = getenv("QL_TOKEN", "")
     client_id: str = getenv("QL_CLIENT_ID", "")
     client_secret: str = getenv("QL_CLIENT_SECRET", "")
+    host: str = getenv("QL_HOST", "")
 
 
 @dataclass

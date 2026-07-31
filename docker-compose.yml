@@ -7,6 +7,8 @@ services:
       - "127.0.0.1:3000:3000"
     env_file:
       - .env
+    extra_hosts:
+      - "host-gateway:host-gateway"
     logging:
       driver: json-file
       options:
