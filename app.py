@@ -29,7 +29,12 @@ def _setup_menu():
 
 
 def _get_ql() -> QLClient:
-    return QLClient(settings.ql.base_url)
+    return QLClient(
+        settings.ql.base_url,
+        client_id=settings.ql.client_id or None,
+        client_secret=settings.ql.client_secret or None,
+        host_header=settings.ql.host or None,
+    )
 
 
 def _get_access_token() -> str:
