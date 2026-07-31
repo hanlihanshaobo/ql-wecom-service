@@ -204,9 +204,9 @@ def list_tasks(ql: QLClient) -> str:
     lines = [f"📋 任务列表（共 {len(crons)} 个）："]
     for i, c in enumerate(crons):
         name = c.get("name", "未知")
-        status = c.get("status", -1)
         is_pinned = c.get("isPinned", 0) or c.get("pinned", False)
-        tag = "✅" if status == 1 else "⛔"
+        is_disabled = int(c.get("isDisabled", 0)) or int(c.get("status", 1)) == 0
+        tag = "⛔" if is_disabled else "✅"
         pin = "📌" if is_pinned else ""
         lines.append(f"{i+1}. {tag}{pin} {name}")
     return "\n".join(lines)
@@ -290,8 +290,8 @@ def _status(name: str, ql: QLClient) -> str:
     cron = ql.get_cron_by_name(name)
     if not cron:
         return f"未找到任务：{name}"
-    status_map = {0: "已禁用", 1: "已启用"}
-    st = status_map.get(cron.get("status"), str(cron.get("status")))
+    is_disabled = int(cron.get("isDisabled", 0)) or int(cron.get("status", 1)) == 0
+    st = "已禁用" if is_disabled else "已启用"
     lines = [f"📌 {name}"]
     lines.append(f"   状态: {st}")
     if cron.get("schedule"):
