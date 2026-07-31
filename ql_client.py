@@ -281,6 +281,24 @@ class QLClient:
             return {"code": -1, "msg": f"未找到订阅: {name}"}
         return self.run_subscription(sub["id"])
 
+    def stop_subscription_by_name(self, name):
+        sub = self.get_subscription_by_name(name)
+        if not sub:
+            return {"code": -1, "msg": f"未找到订阅: {name}"}
+        return self.stop_subscription(sub["id"])
+
+    def disable_subscription_by_name(self, name):
+        sub = self.get_subscription_by_name(name)
+        if not sub:
+            return {"code": -1, "msg": f"未找到订阅: {name}"}
+        return self.disable_subscription(sub["id"])
+
+    def enable_subscription_by_name(self, name):
+        sub = self.get_subscription_by_name(name)
+        if not sub:
+            return {"code": -1, "msg": f"未找到订阅: {name}"}
+        return self.enable_subscription(sub["id"])
+
     def stop_subscription(self, sub_id):
         return self._put("/open/subscriptions/stop", data=[sub_id])
 

@@ -67,6 +67,22 @@ def process_command(cmd: str, ql: QLClient) -> str:
         if not arg:
             return "请指定订阅名称，例如：运行订阅 网易云"
         return _run_subscription(arg, ql)
+    if action in ("停止订阅", "stop_sub"):
+        if not arg:
+            return "请指定订阅名称，例如：停止订阅 网易云"
+        return _stop_subscription(arg, ql)
+    if action in ("禁用订阅", "disable_sub"):
+        if not arg:
+            return "请指定订阅名称，例如：禁用订阅 网易云"
+        return _disable_subscription(arg, ql)
+    if action in ("启用订阅", "enable_sub"):
+        if not arg:
+            return "请指定订阅名称，例如：启用订阅 网易云"
+        return _enable_subscription(arg, ql)
+    if action in ("订阅日志", "sub_log"):
+        if not arg:
+            return "请指定订阅名称，例如：订阅日志 网易云"
+        return _sub_log(arg, ql)
 
     # ---- 系统 ----
     if action in ("系统", "system"):
@@ -165,6 +181,20 @@ def _resolve_task_name(name_or_index: str, ql: QLClient) -> str:
     except ValueError:
         pass
     return name_or_index  # 不是数字，原样返回任务名
+
+
+def _resolve_sub_name(name_or_index: str, ql: QLClient) -> str:
+    """将数字序号转换为实际订阅名"""
+    if not name_or_index:
+        return ""
+    try:
+        idx = int(name_or_index) - 1
+        subs = ql.list_subscriptions()
+        if 0 <= idx < len(subs):
+            return subs[idx].get("name", "")
+    except ValueError:
+        pass
+    return name_or_index
 
 
 def list_tasks(ql: QLClient) -> str:
@@ -384,6 +414,46 @@ def _run_subscription(name: str, ql: QLClient) -> str:
     if result.get("code") == 200:
         return f"✅ 已运行订阅：{name}"
     return f"❌ 运行失败：{result.get('msg', '未知错误')}"
+
+
+def _stop_subscription(name: str, ql: QLClient) -> str:
+    name = _resolve_sub_name(name, ql)
+    result = ql.stop_subscription_by_name(name)
+    if result.get("code") == 200:
+        return f"🛑 已停止订阅：{name}"
+    return f"❌ 停止失败：{result.get('msg', '未知错误')}"
+
+
+def _disable_subscription(name: str, ql: QLClient) -> str:
+    name = _resolve_sub_name(name, ql)
+    result = ql.disable_subscription_by_name(name)
+    if result.get("code") == 200:
+        return f"🚫 已禁用订阅：{name}"
+    return f"❌ 禁用失败：{result.get('msg', '未知错误')}"
+
+
+def _enable_subscription(name: str, ql: QLClient) -> str:
+    name = _resolve_sub_name(name, ql)
+    result = ql.enable_subscription_by_name(name)
+    if result.get("code") == 200:
+        return f"✅ 已启用订阅：{name}"
+    return f"❌ 启用失败：{result.get('msg', '未知错误')}"
+
+
+def _sub_log(name: str, ql: QLClient) -> str:
+    name = _resolve_sub_name(name, ql)
+    sub = ql.get_subscription_by_name(name)
+    if not sub:
+        return f"未找到订阅：{name}"
+    logs = ql.get_subscription_logs(sub["id"])
+    if not logs:
+        return f"暂无订阅日志：{name}"
+    lines = [f"📋 订阅日志 [{name}] 最近 {len(logs)} 条："]
+    for l in logs:
+        ts = l.get("timestamp", "") or l.get("ts", "")
+        msg = l.get("message", "") or l.get("content", "") or str(l)
+        lines.append(f"  {ts} {msg}")
+    return "\n".join(lines)
 
 
 # ==================== 系统指令 ====================
@@ -663,6 +733,10 @@ def help_text() -> str:
         "── 订阅管理 ──\n"
         "  订阅 / 订阅列表\n"
         "  运行订阅 <订阅名>\n"
+        "  停止订阅 <订阅名>\n"
+        "  禁用订阅 <订阅名>\n"
+        "  启用订阅 <订阅名>\n"
+        "  订阅日志 <订阅名>\n"
         "── 脚本 ──\n"
         "  脚本 / 脚本列表\n"
         "  脚本详情 <文件名> [路径]\n"
