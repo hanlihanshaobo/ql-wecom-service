@@ -37,6 +37,7 @@ class BotConfig:
     name: str = getenv("BOT_NAME", "QinglongBot")
     custom_script_filename: str = getenv("CUSTOM_SCRIPT_FILENAME", "")
     custom_script_path: str = getenv("CUSTOM_SCRIPT_PATH", "")
+    custom_script_button_name: str = getenv("CUSTOM_SCRIPT_BUTTON_NAME", "执行自定义脚本")
 
 
 @dataclass

@@ -11,6 +11,7 @@ from commands import (
     list_tasks, list_envs, list_subscriptions, list_scripts,
     system_info, help_text, _list_deps, run_custom_script,
 )
+from settings import settings
 
 logger = logging.getLogger("wecom")
 
@@ -44,9 +45,9 @@ MENU = {
             "name": "更多设置",
             "sub_button": [
                 {"type": "click", "name": "设置变量", "key": "ql_env_set"},
-                {"type": "click", "name": "执行自定义脚本", "key": "ql_run_custom"},
                 {"type": "click", "name": "删除任务", "key": "ql_task_delete"},
                 {"type": "click", "name": "依赖列表", "key": "ql_dep_list"},
+                {"type": "click", "name": settings.bot.custom_script_button_name, "key": "ql_run_custom"},
                 {"type": "click", "name": "使用帮助", "key": "ql_help"},
             ],
         },
