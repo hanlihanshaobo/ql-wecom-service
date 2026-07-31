@@ -8,7 +8,7 @@ def process_command(cmd: str, ql: QLClient) -> str:
 
     # ---- 任务 ----
     if action in ("任务", "任务列表", "tasks", "list"):
-        return _list_tasks(ql)
+        return list_tasks(ql)
     if action in ("执行", "运行", "run"):
         if not arg:
             return "请指定要执行的任务名，例如：执行 签到"
@@ -38,7 +38,7 @@ def process_command(cmd: str, ql: QLClient) -> str:
 
     # ---- 环境变量 ----
     if action in ("变量", "变量列表", "envs"):
-        return _list_envs(arg, ql)
+        return list_envs(arg, ql)
     if action in ("设变量", "set_env"):
         if not arg:
             return "格式：设变量 <名称>=<值> [备注...]"
@@ -62,7 +62,7 @@ def process_command(cmd: str, ql: QLClient) -> str:
 
     # ---- 订阅 ----
     if action in ("订阅", "订阅列表", "subscriptions"):
-        return _list_subscriptions(ql, arg)
+        return list_subscriptions(ql, arg)
     if action in ("运行订阅", "run_sub"):
         if not arg:
             return "请指定订阅名称，例如：运行订阅 网易云"
@@ -70,7 +70,7 @@ def process_command(cmd: str, ql: QLClient) -> str:
 
     # ---- 系统 ----
     if action in ("系统", "system"):
-        return _system_info(ql)
+        return system_info(ql)
     if action in ("通知", "notify"):
         if not arg:
             return "格式：通知 <标题>=<内容>"
@@ -78,14 +78,14 @@ def process_command(cmd: str, ql: QLClient) -> str:
 
     # ---- 脚本 ----
     if action in ("脚本", "脚本列表", "scripts"):
-        return _list_scripts(arg, ql)
+        return list_scripts(arg, ql)
 
-    return _help_text()
+    return help_text()
 
 
 # ==================== 任务指令 ====================
 
-def _list_tasks(ql: QLClient) -> str:
+def list_tasks(ql: QLClient) -> str:
     crons = ql.list_crons()
     if not crons:
         return "暂无任务"
@@ -187,7 +187,7 @@ def _status(name: str, ql: QLClient) -> str:
 
 # ==================== 变量指令 ====================
 
-def _list_envs(search: str, ql: QLClient) -> str:
+def list_envs(search: str, ql: QLClient) -> str:
     envs = ql.get_envs(search_value=search or None)
     if not envs:
         return "暂无环境变量"
@@ -276,7 +276,7 @@ def _enable_env(arg: str, ql: QLClient) -> str:
 
 # ==================== 订阅指令 ====================
 
-def _list_subscriptions(ql: QLClient, search: str) -> str:
+def list_subscriptions(ql: QLClient, search: str) -> str:
     subs = ql.list_subscriptions(search=search or None)
     if not subs:
         return "暂无订阅"
@@ -299,7 +299,7 @@ def _run_subscription(name: str, ql: QLClient) -> str:
 
 # ==================== 系统指令 ====================
 
-def _system_info(ql: QLClient) -> str:
+def system_info(ql: QLClient) -> str:
     info = ql.get_system_info()
     if not info:
         return "获取系统信息失败"
@@ -327,7 +327,7 @@ def _send_notify(arg: str, ql: QLClient) -> str:
 
 # ==================== 脚本指令 ====================
 
-def _list_scripts(path: str, ql: QLClient) -> str:
+def list_scripts(path: str, ql: QLClient) -> str:
     scripts = ql.list_scripts(path=path or None)
     if not scripts:
         return "暂无脚本"
@@ -342,7 +342,7 @@ def _list_scripts(path: str, ql: QLClient) -> str:
 
 # ==================== 帮助 ====================
 
-def _help_text() -> str:
+def help_text() -> str:
     return (
         "📌 支持指令：\n"
         "── 任务管理 ──\n"

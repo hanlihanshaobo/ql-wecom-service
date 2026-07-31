@@ -7,8 +7,8 @@ services:
       - "127.0.0.1:3000:3000"
     env_file:
       - .env
-    extra_hosts:
-      - "host-gateway:host-gateway"
+    # QL_BASE_URL 需指向宿主机 Docker 网桥网关（如 172.20.0.1），不能写 localhost
+    # 查看网关: docker network inspect bridge --format '{{range .IPAM.Config}}{{.Gateway}}{{end}}'
     logging:
       driver: json-file
       options:

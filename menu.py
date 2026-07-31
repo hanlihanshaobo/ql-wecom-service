@@ -8,8 +8,8 @@ import logging
 import httpx
 
 from commands import (
-    _list_tasks, _list_envs, _list_subscriptions, _list_scripts,
-    _system_info, _help_text,
+    list_tasks, list_envs, list_subscriptions, list_scripts,
+    system_info, help_text,
 )
 
 logger = logging.getLogger("wecom")
@@ -99,11 +99,11 @@ def handle_menu_click(event_key: str, ql_client) -> str | None:
     """根据 EventKey 返回对应的回复文本，无匹配时返回 None"""
     handlers = {
         # 常用查询 —— 直接返回数据
-        "ql_task_list":    lambda: _list_tasks(ql_client),
-        "ql_env_list":     lambda: _list_envs("", ql_client),
-        "ql_sub_list":     lambda: _list_subscriptions(ql_client, ""),
-        "ql_script_list":  lambda: _list_scripts("", ql_client),
-        "ql_system_info":  lambda: _system_info(ql_client),
+        "ql_task_list":    lambda: list_tasks(ql_client),
+        "ql_env_list":     lambda: list_envs("", ql_client),
+        "ql_sub_list":     lambda: list_subscriptions(ql_client, ""),
+        "ql_script_list":  lambda: list_scripts("", ql_client),
+        "ql_system_info":  lambda: system_info(ql_client),
 
         # 任务操作 —— 先列出任务，再引导用户输入命令
         "ql_task_run":    lambda: _prompt("执行", "执行 <任务名>", ql_client),
@@ -122,7 +122,7 @@ def handle_menu_click(event_key: str, ql_client) -> str | None:
             "🔔 发送通知格式：\n通知 <标题>=<内容>\n\n"
             "示例：通知 备份完成=数据库备份已成功"
         ),
-        "ql_help": lambda: _help_text(),
+        "ql_help": lambda: help_text(),
     }
 
     handler = handlers.get(event_key)
@@ -131,5 +131,5 @@ def handle_menu_click(event_key: str, ql_client) -> str | None:
 
 def _prompt(label: str, cmd_format: str, ql_client) -> str:
     """返回任务列表 + 输入提示"""
-    tasks = _list_tasks(ql_client)
+    tasks = list_tasks(ql_client)
     return f"{tasks}\n\n---\n💡 请直接输入命令：{cmd_format}"
