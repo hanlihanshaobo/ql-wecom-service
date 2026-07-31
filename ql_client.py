@@ -463,7 +463,13 @@ class QLClient:
         return data.get("data") if data.get("code") == 200 else None
 
     def run_command(self, command):
-        return self._put("/open/system/command-run", data={"command": command})
+        resp = self._client.put("/open/system/command-run", json={"command": command})
+        resp.raise_for_status()
+        # command-run 返回 octet-stream，不是 JSON
+        try:
+            return resp.json()
+        except Exception:
+            return {"code": 200, "data": resp.text}
 
     def stop_command(self, command=None, pid=None):
         body = {}

@@ -607,18 +607,16 @@ def run_custom_script(ql: QLClient) -> str:
         logger.info(f"脚本未找到，期望: {filename}，目录: {loc}，实际列表: {found_names[:10]}")
         return f"❌ 未找到脚本：{filename}\n目录 {loc} 中的脚本：{', '.join(found_names[:20])}"
 
+    # 使用 task 命令运行脚本（比 scripts/run 更可靠）
+    script_path = f"{path}/{filename}" if path else filename
     try:
-        result = ql.run_script(filename, path)
+        result = ql.run_command(f"task {script_path}")
     except Exception as e:
-        logger.error(f"run_script 失败: {e}")
+        logger.error(f"run_command 失败: {e}")
         return f"❌ 执行脚本失败：{e}"
 
     if result.get("code") == 200:
-        data = result.get("data", {})
-        msg = ""
-        if isinstance(data, dict):
-            msg = data.get("message", "")
-        return f"✅ 已运行自定义脚本：{filename}" + (f"\n{msg}" if msg else "")
+        return f"✅ 已运行自定义脚本：{filename}"
     return f"❌ 运行失败：{result.get('msg', '未知错误')}"
 
 
