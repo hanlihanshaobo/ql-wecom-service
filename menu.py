@@ -106,12 +106,12 @@ def handle_menu_click(event_key: str, ql_client) -> str | None:
         "ql_system_info":  lambda: system_info(ql_client),
 
         # 任务操作 —— 先列出任务，再引导用户输入命令
-        "ql_task_run":    lambda: _prompt("执行", "执行 <任务名>", ql_client),
-        "ql_task_stop":   lambda: _prompt("停止", "停止 <任务名>", ql_client),
-        "ql_task_log":    lambda: _prompt("查看日志", "日志 <任务名>", ql_client),
-        "ql_task_status": lambda: _prompt("查看状态", "状态 <任务名>", ql_client),
-        "ql_task_toggle": lambda: _prompt("禁用/启用", "禁用任务/启用任务 <任务名>", ql_client),
-        "ql_task_delete": lambda: _prompt("删除任务", "删除任务 <任务名>", ql_client),
+        "ql_task_run":    lambda: _prompt(ql_client, "执行"),
+        "ql_task_stop":   lambda: _prompt(ql_client, "停止"),
+        "ql_task_log":    lambda: _prompt(ql_client, "日志"),
+        "ql_task_status": lambda: _prompt(ql_client, "状态"),
+        "ql_task_toggle": lambda: _prompt(ql_client, "禁用任务/启用任务"),
+        "ql_task_delete": lambda: _prompt(ql_client, "删除任务"),
 
         # 更多 —— 给出格式提示
         "ql_env_set": lambda: (
@@ -129,7 +129,7 @@ def handle_menu_click(event_key: str, ql_client) -> str | None:
     return handler() if handler else None
 
 
-def _prompt(label: str, cmd_format: str, ql_client) -> str:
-    """返回任务列表 + 输入提示"""
+def _prompt(ql_client, cmd: str) -> str:
+    """返回带序号的任务列表 + 序号操作提示"""
     tasks = list_tasks(ql_client)
-    return f"{tasks}\n\n---\n💡 请直接输入命令：{cmd_format}"
+    return f"{tasks}\n\n💡 回复序号，如：{cmd} 1"

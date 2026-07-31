@@ -11,29 +11,29 @@ def process_command(cmd: str, ql: QLClient) -> str:
         return list_tasks(ql)
     if action in ("执行", "运行", "run"):
         if not arg:
-            return "请指定要执行的任务名，例如：执行 签到"
+            return "请指定任务名或序号，例如：执行 签到 或 执行 1"
         return _run_task(arg, ql)
     if action in ("停止", "stop"):
         if not arg:
-            return "请指定要停止的任务名，例如：停止 签到"
+            return "请指定任务名或序号，例如：停止 签到 或 停止 1"
         return _stop_task(arg, ql)
     if action in ("日志", "log"):
         if not arg:
-            return "请指定任务的日志，例如：日志 签到"
+            return "请指定任务名或序号，例如：日志 签到 或 日志 1"
         return _get_logs(arg, ql)
     if action in ("状态", "status"):
-        return _status(arg, ql)
+        return _status(arg, ql) if arg else "请指定任务名或序号，例如：状态 1"
     if action in ("禁用任务", "disable_task"):
         if not arg:
-            return "请指定任务名，例如：禁用任务 签到"
+            return "请指定任务名或序号，例如：禁用任务 1"
         return _disable_task(arg, ql)
     if action in ("启用任务", "enable_task"):
         if not arg:
-            return "请指定任务名，例如：启用任务 签到"
+            return "请指定任务名或序号，例如：启用任务 1"
         return _enable_task(arg, ql)
     if action in ("删除任务", "delete_task"):
         if not arg:
-            return "请指定任务名，例如：删除任务 签到"
+            return "请指定任务名或序号，例如：删除任务 1"
         return _delete_task(arg, ql)
 
     # ---- 环境变量 ----
@@ -85,22 +85,37 @@ def process_command(cmd: str, ql: QLClient) -> str:
 
 # ==================== 任务指令 ====================
 
+def _resolve_task_name(name_or_index: str, ql: QLClient) -> str:
+    """将数字序号转换为实际任务名，返回 '' 表示序号无效"""
+    if not name_or_index:
+        return ""
+    try:
+        idx = int(name_or_index) - 1
+        crons = ql.list_crons()
+        if 0 <= idx < len(crons):
+            return crons[idx].get("name", "")
+    except ValueError:
+        pass
+    return name_or_index  # 不是数字，原样返回任务名
+
+
 def list_tasks(ql: QLClient) -> str:
     crons = ql.list_crons()
     if not crons:
         return "暂无任务"
     lines = [f"📋 任务列表（共 {len(crons)} 个）："]
-    for c in crons:
+    for i, c in enumerate(crons):
         name = c.get("name", "未知")
         status = c.get("status", -1)
         is_pinned = c.get("isPinned", 0) or c.get("pinned", False)
         tag = "✅" if status == 1 else "⛔"
         pin = "📌" if is_pinned else ""
-        lines.append(f"{tag}{pin} {name}")
+        lines.append(f"{i+1}. {tag}{pin} {name}")
     return "\n".join(lines)
 
 
 def _run_task(name: str, ql: QLClient) -> str:
+    name = _resolve_task_name(name, ql)
     result = ql.run_cron_by_name(name)
     if result.get("code") == 200:
         return f"✅ 已执行任务：{name}"
@@ -108,6 +123,7 @@ def _run_task(name: str, ql: QLClient) -> str:
 
 
 def _stop_task(name: str, ql: QLClient) -> str:
+    name = _resolve_task_name(name, ql)
     result = ql.stop_cron_by_name(name)
     if result.get("code") == 200:
         return f"🛑 已停止任务：{name}"
@@ -115,6 +131,7 @@ def _stop_task(name: str, ql: QLClient) -> str:
 
 
 def _disable_task(name: str, ql: QLClient) -> str:
+    name = _resolve_task_name(name, ql)
     result = ql.disable_cron_by_name(name)
     if result.get("code") == 200:
         return f"⛔ 已禁用任务：{name}"
@@ -122,6 +139,7 @@ def _disable_task(name: str, ql: QLClient) -> str:
 
 
 def _enable_task(name: str, ql: QLClient) -> str:
+    name = _resolve_task_name(name, ql)
     result = ql.enable_cron_by_name(name)
     if result.get("code") == 200:
         return f"✅ 已启用任务：{name}"
@@ -129,6 +147,7 @@ def _enable_task(name: str, ql: QLClient) -> str:
 
 
 def _delete_task(name: str, ql: QLClient) -> str:
+    name = _resolve_task_name(name, ql)
     cron = ql.get_cron_by_name(name)
     if not cron:
         return f"未找到任务：{name}"
@@ -139,6 +158,7 @@ def _delete_task(name: str, ql: QLClient) -> str:
 
 
 def _get_logs(name: str, ql: QLClient) -> str:
+    name = _resolve_task_name(name, ql)
     cron = ql.get_cron_by_name(name)
     if not cron:
         return f"未找到任务：{name}"
@@ -167,7 +187,8 @@ def _get_logs(name: str, ql: QLClient) -> str:
 
 def _status(name: str, ql: QLClient) -> str:
     if not name:
-        return "请指定任务名，例如：状态 签到"
+        return "请指定任务名或序号，例如：状态 签到 或 状态 1"
+    name = _resolve_task_name(name, ql)
     cron = ql.get_cron_by_name(name)
     if not cron:
         return f"未找到任务：{name}"
@@ -345,6 +366,7 @@ def list_scripts(path: str, ql: QLClient) -> str:
 def help_text() -> str:
     return (
         "📌 支持指令：\n"
+        "💡 <任务名> 可用序号代替，如 执行 1\n"
         "── 任务管理 ──\n"
         "  任务 / 任务列表\n"
         "  状态 <任务名>\n"
