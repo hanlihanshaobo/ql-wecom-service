@@ -1,7 +1,7 @@
 import logging
 import time
 import httpx
-from fastapi import FastAPI, Request, Query
+from fastapi import FastAPI, Request, Query, BackgroundTasks
 from fastapi.responses import PlainTextResponse
 
 from settings import settings
@@ -108,8 +108,34 @@ async def wecom_verify(
     return PlainTextResponse("ok")
 
 
+def _handle_and_reply(from_user: str, content: str, msg_type: str, event: str, event_key: str):
+    """后台处理消息/事件 + 发送回复（避免阻塞企微回调导致超时重试）"""
+    ql = _get_ql()
+    result = ""
+    try:
+        if msg_type == "event" and event == "click" and event_key:
+            result = handle_menu_click(event_key, ql)
+            if result:
+                logger.info(f"菜单点击: key={event_key}, 回复长度={len(result)}")
+            else:
+                result = f"未知菜单: {event_key}"
+        elif content:
+            result = process_command(content, ql)
+            logger.info(f"处理结果: {result[:100] if result else 'EMPTY'}")
+        else:
+            logger.info("消息内容为空且非菜单事件，跳过")
+            return
+    except Exception as e:
+        logger.error(f"处理消息异常: {e}")
+        result = f"❌ 操作失败：{e}\n\n请检查青龙面板连接是否正常"
+
+    if from_user and result:
+        success = _send_text(from_user, result)
+        logger.info(f"发送结果: {'成功' if success else '失败'}")
+
+
 @app.post("/wecom/callback")
-async def wecom_callback(request: Request):
+async def wecom_callback(request: Request, background_tasks: BackgroundTasks):
     body = await request.body()
     args = request.query_params
     s_sig = args.get("msg_signature")
@@ -129,7 +155,6 @@ async def wecom_callback(request: Request):
         if ret != 0:
             logger.error(f"解密失败: ret={ret}")
             return {"errcode": ret, "errmsg": "decrypt failed"}
-        logger.info(f"解密成功, msg类型: {msg[:20]}")
 
     info = parse_qyxml(msg)
     content = info.get("content", "").strip()
@@ -139,28 +164,11 @@ async def wecom_callback(request: Request):
     event_key = info.get("event_key", "")
     logger.info(f"收到消息: from={from_user}, type={msg_type}, event={event}, key={event_key}, content={content}")
 
-    ql = _get_ql()
+    # 空消息直接跳过，不消耗后台任务
+    if not content and not (msg_type == "event" and event == "click" and event_key):
+        logger.info("消息内容为空且非菜单事件，跳过")
+        return {"errcode": 0, "errmsg": "ok"}
 
-    try:
-        # 处理菜单点击事件
-        if msg_type == "event" and event == "click" and event_key:
-            result = handle_menu_click(event_key, ql)
-            if result:
-                logger.info(f"菜单点击: key={event_key}, 回复长度={len(result)}")
-            else:
-                result = f"未知菜单: {event_key}"
-        elif content:
-            result = process_command(content, ql)
-            logger.info(f"处理结果: {result[:100] if result else 'EMPTY'}")
-        else:
-            logger.info("消息内容为空且非菜单事件，跳过")
-            return {"errcode": 0, "errmsg": "ok"}
-    except Exception as e:
-        logger.error(f"处理消息异常: {e}")
-        result = f"❌ 操作失败：{e}\n\n请检查青龙面板连接是否正常"
-
-    if from_user and result:
-        success = _send_text(from_user, result)
-        logger.info(f"发送结果: {'成功' if success else '失败'}")
-
+    # 放入后台执行，立即返回 200，避免企微 5 秒超时重试导致命令重复执行
+    background_tasks.add_task(_handle_and_reply, from_user, content, msg_type, event, event_key)
     return {"errcode": 0, "errmsg": "ok"}
