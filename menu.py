@@ -21,32 +21,32 @@ logger = logging.getLogger("wecom")
 MENU = {
     "button": [
         {
-            "name": "📋 常用查询",
+            "name": "常用查询",
             "sub_button": [
-                {"type": "click", "name": "📋 任务列表", "key": "ql_task_list"},
-                {"type": "click", "name": "📦 变量列表", "key": "ql_env_list"},
-                {"type": "click", "name": "📡 订阅列表", "key": "ql_sub_list"},
-                {"type": "click", "name": "📜 脚本列表", "key": "ql_script_list"},
-                {"type": "click", "name": "🖥 系统信息", "key": "ql_system_info"},
+                {"type": "click", "name": "任务列表", "key": "ql_task_list"},
+                {"type": "click", "name": "变量列表", "key": "ql_env_list"},
+                {"type": "click", "name": "订阅列表", "key": "ql_sub_list"},
+                {"type": "click", "name": "脚本列表", "key": "ql_script_list"},
+                {"type": "click", "name": "系统信息", "key": "ql_system_info"},
             ],
         },
         {
-            "name": "🔧 任务操作",
+            "name": "任务操作",
             "sub_button": [
-                {"type": "click", "name": "▶ 执行任务", "key": "ql_task_run"},
-                {"type": "click", "name": "🛑 停止任务", "key": "ql_task_stop"},
-                {"type": "click", "name": "📄 查看日志", "key": "ql_task_log"},
-                {"type": "click", "name": "📌 查看状态", "key": "ql_task_status"},
-                {"type": "click", "name": "⛔/✅ 禁用/启用", "key": "ql_task_toggle"},
+                {"type": "click", "name": "执行任务", "key": "ql_task_run"},
+                {"type": "click", "name": "停止任务", "key": "ql_task_stop"},
+                {"type": "click", "name": "查看日志", "key": "ql_task_log"},
+                {"type": "click", "name": "查看状态", "key": "ql_task_status"},
+                {"type": "click", "name": "禁用/启用", "key": "ql_task_toggle"},
             ],
         },
         {
-            "name": "⚙️ 更多",
+            "name": "更多设置",
             "sub_button": [
-                {"type": "click", "name": "➕ 设置变量", "key": "ql_env_set"},
-                {"type": "click", "name": "🔔 发送通知", "key": "ql_notify"},
-                {"type": "click", "name": "❌ 删除任务", "key": "ql_task_delete"},
-                {"type": "click", "name": "❓ 使用帮助", "key": "ql_help"},
+                {"type": "click", "name": "设置变量", "key": "ql_env_set"},
+                {"type": "click", "name": "发送通知", "key": "ql_notify"},
+                {"type": "click", "name": "删除任务", "key": "ql_task_delete"},
+                {"type": "click", "name": "使用帮助", "key": "ql_help"},
             ],
         },
     ]
