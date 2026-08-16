@@ -9,7 +9,8 @@ import httpx
 
 from commands import (
     list_tasks, list_envs, list_subscriptions, list_scripts,
-    system_info, help_text, _list_deps, _list_configs, run_custom_script,
+    system_info, help_text, _list_deps, _list_configs, _list_logs,
+    run_custom_script,
 )
 from settings import settings
 
@@ -21,16 +22,6 @@ logger = logging.getLogger("wecom")
 
 MENU = {
     "button": [
-        {
-            "name": "常用查询",
-            "sub_button": [
-                {"type": "click", "name": "任务列表", "key": "ql_task_list"},
-                {"type": "click", "name": "变量列表", "key": "ql_env_list"},
-                {"type": "click", "name": "订阅列表", "key": "ql_sub_list"},
-                {"type": "click", "name": "脚本列表", "key": "ql_script_list"},
-                {"type": "click", "name": "系统信息", "key": "ql_system_info"},
-            ],
-        },
         {
             "name": "操作中心",
             "sub_button": [
@@ -44,11 +35,19 @@ MENU = {
         {
             "name": "更多设置",
             "sub_button": [
-                {"type": "click", "name": "设置变量", "key": "ql_env_set"},
+                {"type": "click", "name": "变量操作", "key": "ql_env_ops"},
                 {"type": "click", "name": "发送通知", "key": "ql_notify"},
                 {"type": "click", "name": "查看配置", "key": "ql_config_list"},
                 {"type": "click", "name": settings.bot.custom_script_button_name, "key": "ql_run_custom"},
                 {"type": "click", "name": "使用帮助", "key": "ql_help"},
+            ],
+        },
+        {
+            "name": "日志管理",
+            "sub_button": [
+                {"type": "click", "name": "日志列表", "key": "ql_log_list"},
+                {"type": "click", "name": "日志详情", "key": "ql_log_detail"},
+                {"type": "click", "name": "删除日志", "key": "ql_log_delete"},
             ],
         },
     ]
@@ -100,13 +99,6 @@ def _fetch_token(corp_id: str, secret: str) -> str:
 def handle_menu_click(event_key: str, ql_client) -> str | None:
     """根据 EventKey 返回对应的回复文本，无匹配时返回 None"""
     handlers = {
-        # 常用查询 —— 直接返回数据
-        "ql_task_list":    lambda: list_tasks(ql_client),
-        "ql_env_list":     lambda: list_envs("", ql_client),
-        "ql_sub_list":     lambda: list_subscriptions(ql_client, ""),
-        "ql_script_list":  lambda: list_scripts("", ql_client),
-        "ql_system_info":  lambda: system_info(ql_client),
-
         # 操作中心 —— 列表 + 全部操作提示
         "ql_task_ops":   lambda: _task_ops(ql_client),
         "ql_sub_ops":    lambda: _sub_ops(ql_client),
@@ -114,15 +106,17 @@ def handle_menu_click(event_key: str, ql_client) -> str | None:
         "ql_dep_ops":    lambda: _dep_ops(ql_client),
         "ql_sys_ops":    lambda: _sys_ops(ql_client),
 
-        # 更多设置 —— 给出格式提示
-        "ql_env_set": lambda: (
-            "➕ 设置变量格式：\n设变量 <名称>=<值> [备注]\n\n"
-            "示例：设变量 MY_KEY=abc123 这是一个测试变量"
-        ),
+        # 更多设置 —— 列表 + 全部操作提示 / 格式提示
+        "ql_env_ops": lambda: _env_ops(ql_client),
         "ql_notify": lambda: _notify_hint(),
         "ql_config_list": lambda: _config_hint(ql_client),
         "ql_run_custom": lambda: run_custom_script(ql_client),
         "ql_help": lambda: help_text(),
+
+        # 日志管理 —— 列表 + 操作提示
+        "ql_log_list":   lambda: _log_list(ql_client),
+        "ql_log_detail": lambda: _log_ops(ql_client, "详情"),
+        "ql_log_delete": lambda: _log_ops(ql_client, "删除"),
     }
 
     handler = handlers.get(event_key)
@@ -173,6 +167,20 @@ def _script_ops(ql_client) -> str:
     )
 
 
+def _env_ops(ql_client) -> str:
+    """环境变量列表 + 全部操作提示（合并原设置变量/删除/禁用/启用等）"""
+    envs = list_envs("", ql_client)
+    return (
+        f"{envs}\n\n"
+        f"💡 回复指令操作（变量ID或名称）：\n"
+        f"  设变量 <名称>=<值> [备注]    创建/更新变量\n"
+        f"  查看变量 <ID>               查看变量详情\n"
+        f"  删变量 <ID>                 删除变量\n"
+        f"  禁用变量 <ID>               禁用变量\n"
+        f"  启用变量 <ID>               启用变量"
+    )
+
+
 def _dep_ops(ql_client) -> str:
     """依赖列表 + 操作提示"""
     deps = _list_deps(ql_client)
@@ -217,3 +225,18 @@ def _config_hint(ql_client) -> str:
     """配置文件列表 + 查看提示"""
     configs = _list_configs(ql_client)
     return f"{configs}\n\n💡 查看配置内容：\n查看配置 <路径>"
+
+
+def _log_list(ql_client) -> str:
+    """日志文件列表"""
+    return _list_logs(ql_client)
+
+
+def _log_ops(ql_client, action: str) -> str:
+    """日志列表 + 指定操作提示"""
+    logs = _list_logs(ql_client)
+    return (
+        f"{logs}\n\n"
+        f"💡 回复指令操作（日志文件名）：\n"
+        f"  {'日志详情' if action == '详情' else '删除日志'} <文件名>    {action}日志"
+    )

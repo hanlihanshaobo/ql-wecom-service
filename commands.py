@@ -153,6 +153,16 @@ def process_command(cmd: str, ql: QLClient) -> str:
         return _config_detail(arg, ql)
 
     # ---- 日志管理 ----
+    if action in ("日志列表", "log_list"):
+        return _list_logs(ql)
+    if action in ("日志详情", "log_detail"):
+        if not arg:
+            return "格式：日志详情 <文件名>"
+        return _log_detail(arg, ql)
+    if action in ("删除日志", "del_log"):
+        if not arg:
+            return "格式：删除日志 <文件名>"
+        return _del_log(arg, ql)
     if action in ("系统日志", "sys_log"):
         return _system_log(arg, ql)
 
@@ -715,6 +725,46 @@ def _config_detail(arg: str, ql: QLClient) -> str:
     return f"⚙ {arg}：\n{content}"
 
 
+# ==================== 日志管理 ====================
+
+def _list_logs(ql: QLClient) -> str:
+    """列出所有日志文件"""
+    logs = ql.list_logs()
+    if not logs:
+        return "暂无日志文件"
+    lines = [f"📄 日志列表（共 {len(logs)} 个）："]
+    for log in logs:
+        name = log.get("title", log.get("file", "未知"))
+        size = log.get("size", "")
+        time = log.get("mtime", log.get("time", ""))
+        info = f"  · {name}"
+        if size:
+            info += f" ({size})"
+        if time:
+            info += f" {time}"
+        lines.append(info)
+    return "\n".join(lines)
+
+
+def _log_detail(arg: str, ql: QLClient) -> str:
+    """查看指定日志文件内容"""
+    content = ql.get_log_detail(file=arg)
+    if not content:
+        return f"未找到日志：{arg}"
+    text = str(content)
+    if len(text) > 2000:
+        text = text[-2000:]
+    return f"📄 {arg}：\n{text}"
+
+
+def _del_log(arg: str, ql: QLClient) -> str:
+    """删除指定日志文件"""
+    result = ql.delete_logs(arg)
+    if result.get("code") == 200:
+        return f"✅ 日志已删除：{arg}"
+    return f"❌ 删除失败：{result}"
+
+
 # ==================== 系统指令补充 ====================
 
 def _system_log(arg: str, ql: QLClient) -> str:
@@ -817,6 +867,10 @@ def help_text() -> str:
         "── 配置 ──\n"
         "  配置 / 配置列表\n"
         "  查看配置 <路径>\n"
+        "── 日志管理 ──\n"
+        "  日志列表\n"
+        "  日志详情 <文件名>\n"
+        "  删除日志 <文件名>\n"
         "── 系统 ──\n"
         "  系统\n"
         "  系统配置\n"
