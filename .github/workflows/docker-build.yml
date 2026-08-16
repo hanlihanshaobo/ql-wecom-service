@@ -58,11 +58,15 @@ jobs:
       with:
         context: .
         push: true
-        platforms: linux/amd64,linux/arm64
+        # arm/v7 即 32 位 ARM（armhf，树莓派等）；如需 arm/v6 可追加
+        platforms: linux/amd64,linux/arm64,linux/arm/v7
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
+        # 关闭默认 attestation，避免生成 unknown/unknown 的额外清单
+        provenance: false
+        sbom: false
 
     - name: Delete workflow runs
       uses: Mattraks/delete-workflow-runs@v2
