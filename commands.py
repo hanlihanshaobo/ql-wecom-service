@@ -39,6 +39,12 @@ def process_command(cmd: str, ql: QLClient) -> str:
         if not arg:
             return "请指定任务名或序号，例如：删除任务 1"
         return _delete_task(arg, ql)
+    if action in ("运行中任务", "running"):
+        return list_running_tasks(ql)
+    if action in ("修改定时", "change_cron"):
+        if not arg:
+            return "格式：修改定时 <任务名/序号> <cron表达式>\n示例：修改定时 签到 0 8 * * *"
+        return _change_schedule(arg, ql)
 
     # ---- 环境变量 ----
     if action in ("变量", "变量列表", "envs"):
@@ -67,6 +73,10 @@ def process_command(cmd: str, ql: QLClient) -> str:
     # ---- 订阅 ----
     if action in ("订阅", "订阅列表", "subscriptions"):
         return list_subscriptions(ql, arg)
+    if action in ("创建订阅", "add_sub"):
+        if not arg:
+            return "格式：创建订阅 <仓库URL> [别名]\n示例：创建订阅 https://github.com/user/repo 我的订阅"
+        return _add_subscription(arg, ql)
     if action in ("运行订阅", "run_sub"):
         if not arg:
             return "请指定订阅名称，例如：运行订阅 网易云"
@@ -95,6 +105,26 @@ def process_command(cmd: str, ql: QLClient) -> str:
         if not arg:
             return "格式：通知 <标题>=<内容>"
         return _send_notify(arg, ql)
+
+    # ---- 命令管理 ----
+    if action in ("命令", "命令列表", "commands"):
+        return _list_commands(ql, arg)
+    if action in ("新建命令", "add_cmd"):
+        if not arg:
+            return "格式：新建命令 <名称> <命令内容>"
+        return _add_command(arg, ql)
+    if action in ("命令详情", "cmd_detail"):
+        if not arg:
+            return "请指定命令ID，例如：命令详情 1"
+        return _cmd_detail(arg, ql)
+    if action in ("运行命令", "run_cmd"):
+        if not arg:
+            return "请指定命令ID，例如：运行命令 1"
+        return _run_command(arg, ql)
+    if action in ("删命令", "del_cmd"):
+        if not arg:
+            return "请指定命令ID，例如：删命令 1"
+        return _del_command(arg, ql)
 
     # ---- 脚本 ----
     if action in ("脚本", "脚本列表", "scripts"):
@@ -324,6 +354,49 @@ def _status(name: str, ql: QLClient) -> str:
     return "\n".join(lines)
 
 
+def list_running_tasks(ql: QLClient) -> str:
+    """列出当前正在运行的任务"""
+    crons = ql.list_crons()
+    running = []
+    for c in crons:
+        # 兼容不同版本字段：isRunning / is_running / 运行中的 pid
+        if c.get("isRunning") or c.get("is_running") or c.get("pid"):
+            running.append(c)
+    if not running:
+        return "🟢 当前没有运行中的任务"
+    lines = [f"🏃 运行中任务（{len(running)} 个）："]
+    for i, c in enumerate(running):
+        name = c.get("name", "未知")
+        last = c.get("last_execution_time") or c.get("lastRunningTime") or ""
+        lines.append(f"{i+1}. 🏃 {name}")
+        if last:
+            lines.append(f"     上次执行: {last}")
+    lines.append("\n💡 回复 停止 <序号> 可停止任务")
+    return "\n".join(lines)
+
+
+def _change_schedule(arg: str, ql: QLClient) -> str:
+    """修改任务定时：修改定时 <任务名/序号> <cron表达式>"""
+    parts = arg.split(None, 1)
+    if len(parts) < 2:
+        return "格式：修改定时 <任务名/序号> <cron表达式>\n示例：修改定时 签到 0 8 * * *"
+    name = _resolve_task_name(parts[0], ql)
+    schedule = parts[1].strip()
+    cron = ql.get_cron_by_name(name)
+    if not cron:
+        return f"未找到任务：{name}"
+    payload = {
+        "id": cron["id"],
+        "name": cron.get("name", ""),
+        "command": cron.get("command", ""),
+        "schedule": schedule,
+    }
+    result = ql.update_cron(payload)
+    if result.get("code") == 200:
+        return f"✅ 已修改定时：{name} → {schedule}"
+    return f"❌ 修改失败：{result.get('msg', '未知错误')}"
+
+
 # ==================== 变量指令 ====================
 
 def list_envs(search: str, ql: QLClient) -> str:
@@ -427,6 +500,31 @@ def list_subscriptions(ql: QLClient, search: str) -> str:
         stype = s.get("type", "")
         lines.append(f"{tag} {name} ({stype})")
     return "\n".join(lines)
+
+
+def _add_subscription(arg: str, ql: QLClient) -> str:
+    """创建订阅：创建订阅 <仓库URL> [别名]"""
+    parts = arg.split(None, 1)
+    url = parts[0].strip()
+    alias = parts[1].strip() if len(parts) > 1 else ""
+    if not url.startswith(("http://", "https://", "git@")):
+        return (
+            "请提供有效的仓库地址，例如：\n"
+            "  创建订阅 https://github.com/user/repo\n"
+            "  创建订阅 https://github.com/user/repo 我的订阅"
+        )
+    if not alias:
+        alias = url.rstrip("/").split("/")[-1] or "新订阅"
+    sub_data = {
+        "type": 1,            # 1=公开仓库 2=私有仓库 3=单脚本
+        "url": url,
+        "schedule_type": 2,   # 1=每分钟 2=每小时 3=每天 4=每周 5=每月
+        "alias": alias,
+    }
+    result = ql.create_subscription(sub_data)
+    if result.get("code") == 200:
+        return f"✅ 订阅已创建：{alias}\n仓库: {url}\n默认每小时拉取，可在青龙面板中调整"
+    return f"❌ 创建失败：{result.get('msg', '未知错误')}"
 
 
 def _run_subscription(name: str, ql: QLClient) -> str:
@@ -765,6 +863,79 @@ def _del_log(arg: str, ql: QLClient) -> str:
     return f"❌ 删除失败：{result}"
 
 
+# ==================== 命令管理 ====================
+
+def _list_commands(ql: QLClient, search: str = "") -> str:
+    """命令列表 + 操作提示"""
+    cmds = ql.list_commands(search or None)
+    if not cmds:
+        return "📄 暂无命令\n\n💡 回复 新建命令 <名称> <命令内容> 添加命令"
+    lines = [f"📄 命令列表（共 {len(cmds)} 个）："]
+    for c in cmds:
+        name = c.get("name") or "(无名称)"
+        command = c.get("command", "")
+        cid = c.get("id", "?")
+        lines.append(f"  [{cid}] {name}")
+        lines.append(f"      {command}")
+    lines.append("\n💡 回复指令：")
+    lines.append("  命令详情 <ID>      查看命令详情")
+    lines.append("  运行命令 <ID>      运行命令")
+    lines.append("  删命令 <ID>        删除命令")
+    lines.append("  新建命令 <名称> <内容>  添加命令")
+    return "\n".join(lines)
+
+
+def _cmd_detail(arg: str, ql: QLClient) -> str:
+    """命令详情"""
+    cmd = ql.get_command(arg.strip())
+    if not cmd:
+        return f"未找到命令：{arg}"
+    return (
+        f"📄 命令详情\n"
+        f"名称: {cmd.get('name', '')}\n"
+        f"ID: {cmd.get('id', '')}\n"
+        f"内容: {cmd.get('command', '')}\n"
+        f"描述: {cmd.get('description') or '无'}\n"
+        f"创建时间: {cmd.get('createTime') or '未知'}"
+    )
+
+
+def _add_command(arg: str, ql: QLClient) -> str:
+    """新建命令：新建命令 <名称> <命令内容>"""
+    parts = arg.split(None, 1)
+    if len(parts) < 2:
+        return "格式：新建命令 <名称> <命令内容>\n示例：新建命令 拉库 ql repo https://github.com/user/repo"
+    name, command = parts[0], parts[1]
+    result = ql.create_command({"name": name, "command": command})
+    if result.get("code") == 200:
+        return f"✅ 命令已创建：{name}"
+    return f"❌ 创建失败：{result.get('msg', '未知错误')}"
+
+
+def _run_command(arg: str, ql: QLClient) -> str:
+    """运行命令"""
+    cmd_id = arg.strip()
+    cmd = ql.get_command(cmd_id)
+    if not cmd:
+        return f"未找到命令：{cmd_id}"
+    result = ql.run_command_by_id(cmd_id)
+    if result.get("code") == 200:
+        return f"✅ 已开始运行：{cmd.get('name', cmd_id)}\n执行情况可在 命令详情 中查看"
+    return f"❌ 运行失败：{result.get('msg', '未知错误')}"
+
+
+def _del_command(arg: str, ql: QLClient) -> str:
+    """删除命令"""
+    cmd_id = arg.strip()
+    cmd = ql.get_command(cmd_id)
+    if not cmd:
+        return f"未找到命令：{cmd_id}"
+    result = ql.delete_commands([cmd_id])
+    if result.get("code") == 200:
+        return f"✅ 命令已删除：{cmd.get('name', cmd_id)}"
+    return f"❌ 删除失败：{result.get('msg', '未知错误')}"
+
+
 # ==================== 系统指令补充 ====================
 
 def _system_log(arg: str, ql: QLClient) -> str:
@@ -837,6 +1008,8 @@ def help_text() -> str:
         "  禁用任务 <任务名>\n"
         "  启用任务 <任务名>\n"
         "  删除任务 <任务名>\n"
+        "  运行中任务\n"
+        "  修改定时 <任务名> <cron表达式>\n"
         "── 环境变量 ──\n"
         "  变量 / 变量列表 [关键词]\n"
         "  设变量 <名称>=<值> [备注]\n"
@@ -846,6 +1019,7 @@ def help_text() -> str:
         "  启用变量 <ID>\n"
         "── 订阅管理 ──\n"
         "  订阅 / 订阅列表\n"
+        "  创建订阅 <仓库URL> [别名]\n"
         "  运行订阅 <订阅名>\n"
         "  停止订阅 <订阅名>\n"
         "  禁用订阅 <订阅名>\n"
@@ -871,6 +1045,12 @@ def help_text() -> str:
         "  日志列表\n"
         "  日志详情 <文件名>\n"
         "  删除日志 <文件名>\n"
+        "── 命令管理 ──\n"
+        "  命令 / 命令列表\n"
+        "  新建命令 <名称> <命令内容>\n"
+        "  命令详情 <ID>\n"
+        "  运行命令 <ID>\n"
+        "  删命令 <ID>\n"
         "── 系统 ──\n"
         "  系统\n"
         "  系统配置\n"

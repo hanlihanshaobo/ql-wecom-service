@@ -10,7 +10,7 @@ import httpx
 from commands import (
     list_tasks, list_envs, list_subscriptions, list_scripts,
     system_info, help_text, _list_deps, _list_configs, _list_logs,
-    run_custom_script,
+    run_custom_script, list_running_tasks, _list_commands,
 )
 from settings import settings
 
@@ -26,6 +26,7 @@ MENU = {
             "name": "任务",
             "sub_button": [
                 {"type": "click", "name": "任务操作", "key": "ql_task_ops"},
+                {"type": "click", "name": "运行中任务", "key": "ql_running_tasks"},
             ],
         },
         {
@@ -43,7 +44,7 @@ MENU = {
             "sub_button": [
                 {"type": "click", "name": "系统操作", "key": "ql_sys_ops"},
                 {"type": "click", "name": "日志管理", "key": "ql_log_ops"},
-                {"type": "click", "name": "发送通知", "key": "ql_notify"},
+                {"type": "click", "name": "命令操作", "key": "ql_cmd_ops"},
                 {"type": "click", "name": "查看配置", "key": "ql_config_list"},
                 {"type": "click", "name": "使用帮助", "key": "ql_help"},
             ],
@@ -97,8 +98,9 @@ def _fetch_token(corp_id: str, secret: str) -> str:
 def handle_menu_click(event_key: str, ql_client) -> str | None:
     """根据 EventKey 返回对应的回复文本，无匹配时返回 None"""
     handlers = {
-        # 任务 —— 任务操作
-        "ql_task_ops": lambda: _task_ops(ql_client),
+        # 任务 —— 任务操作 / 运行中任务
+        "ql_task_ops":       lambda: _task_ops(ql_client),
+        "ql_running_tasks":  lambda: list_running_tasks(ql_client),
 
         # 资源 —— 各资源操作
         "ql_sub_ops":    lambda: _sub_ops(ql_client),
@@ -107,10 +109,10 @@ def handle_menu_click(event_key: str, ql_client) -> str | None:
         "ql_env_ops":    lambda: _env_ops(ql_client),
         "ql_run_custom": lambda: run_custom_script(ql_client),
 
-        # 系统 —— 系统操作 / 日志管理 / 通知 / 配置 / 帮助
+        # 系统 —— 系统操作 / 日志管理 / 命令操作 / 配置 / 帮助
         "ql_sys_ops":     lambda: _sys_ops(ql_client),
         "ql_log_ops":     lambda: _log_ops(ql_client),
-        "ql_notify":      lambda: _notify_hint(),
+        "ql_cmd_ops":     lambda: _cmd_ops(ql_client),
         "ql_config_list": lambda: _config_hint(ql_client),
         "ql_help":        lambda: help_text(),
     }
@@ -125,13 +127,15 @@ def _task_ops(ql_client) -> str:
     return (
         f"{tasks}\n\n"
         f"💡 回复指令操作（序号或任务名）：\n"
-        f"  执行 <序号>       运行任务\n"
-        f"  停止 <序号>       停止任务\n"
-        f"  日志 <序号>       查看日志\n"
-        f"  状态 <序号>       查看状态\n"
-        f"  禁用任务 <序号>   禁用任务\n"
-        f"  启用任务 <序号>   启用任务\n"
-        f"  删除任务 <序号>   删除任务"
+        f"  执行 <序号>         运行任务\n"
+        f"  停止 <序号>         停止任务\n"
+        f"  日志 <序号>         查看日志\n"
+        f"  状态 <序号>         查看状态\n"
+        f"  禁用任务 <序号>     禁用任务\n"
+        f"  启用任务 <序号>     启用任务\n"
+        f"  删除任务 <序号>     删除任务\n"
+        f"  修改定时 <序号> <cron>  修改任务定时\n"
+        f"  运行中任务           查看运行中的任务"
     )
 
 
@@ -141,6 +145,7 @@ def _sub_ops(ql_client) -> str:
     return (
         f"{subs}\n\n"
         f"💡 回复指令操作（订阅名）：\n"
+        f"  创建订阅 <仓库URL> [别名]  添加订阅源\n"
         f"  运行订阅 <名称>     运行订阅\n"
         f"  停止订阅 <名称>     停止订阅\n"
         f"  禁用订阅 <名称>     禁用订阅\n"
@@ -208,13 +213,9 @@ def _sys_ops(ql_client) -> str:
     )
 
 
-def _notify_hint() -> str:
-    """发送通知格式提示"""
-    return (
-        "📢 发送通知格式：\n"
-        "通知 <标题>=<内容>\n\n"
-        "示例：通知 打卡提醒=记得打卡哦"
-    )
+def _cmd_ops(ql_client) -> str:
+    """命令列表 + 操作提示"""
+    return _list_commands(ql_client, "")
 
 
 def _config_hint(ql_client) -> str:
