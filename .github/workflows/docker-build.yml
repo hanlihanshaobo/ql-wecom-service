@@ -5,6 +5,8 @@ name: Docker Build & Push
 permissions:
   contents: read
   packages: write
+  # 清理旧 workflow runs 需要删除权限
+  actions: write
 
 env:
   IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/ql-wecom-service
