@@ -1,8 +1,28 @@
 import logging
+from datetime import datetime
 from ql_client import QLClient
 from settings import settings
 
 logger = logging.getLogger("wecom")
+
+
+def _fmt_ts(value) -> str:
+    """将青龙接口返回的时间戳（秒/毫秒）格式化为可读时间；空值返回空串，无效值原样返回"""
+    if not value:
+        return ""
+    try:
+        ts = int(str(value).strip())
+    except (TypeError, ValueError):
+        return str(value)
+    if ts <= 0:
+        return ""
+    # 兼容毫秒级（13位）时间戳
+    if ts > 10**12:
+        ts = ts // 1000
+    try:
+        return datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
+    except (OverflowError, OSError, ValueError):
+        return str(value)
 
 
 def process_command(cmd: str, ql: QLClient) -> str:
@@ -339,8 +359,9 @@ def _status(name: str, ql: QLClient) -> str:
     if cron.get("command"):
         cmd_text = cron["command"][:80]
         lines.append(f"   命令: {cmd_text}")
-    if cron.get("last_execution_time"):
-        lines.append(f"   上次执行: {cron['last_execution_time']}")
+    last = _fmt_ts(cron.get("last_execution_time"))
+    if last:
+        lines.append(f"   上次执行: {last}")
     return "\n".join(lines)
 
 
@@ -357,7 +378,7 @@ def list_running_tasks(ql: QLClient) -> str:
     lines = [f"🏃 运行中任务（{len(running)} 个）："]
     for i, c in enumerate(running):
         name = c.get("name", "未知")
-        last = c.get("last_execution_time") or c.get("lastRunningTime") or ""
+        last = _fmt_ts(c.get("last_execution_time") or c.get("lastRunningTime"))
         lines.append(f"{i+1}. 🏃 {name}")
         if last:
             lines.append(f"     上次执行: {last}")
@@ -558,9 +579,9 @@ def _sub_log(name: str, ql: QLClient) -> str:
         return f"暂无订阅日志：{name}"
     lines = [f"📋 订阅日志 [{name}] 最近 {len(logs)} 条："]
     for l in logs:
-        ts = l.get("timestamp", "") or l.get("ts", "")
+        ts = _fmt_ts(l.get("timestamp") or l.get("ts"))
         msg = l.get("message", "") or l.get("content", "") or str(l)
-        lines.append(f"  {ts} {msg}")
+        lines.append(f"  {ts + ' ' if ts else ''}{msg}")
     return "\n".join(lines)
 
 
@@ -824,7 +845,7 @@ def _list_logs(ql: QLClient) -> str:
     for log in logs:
         name = log.get("title", log.get("file", "未知"))
         size = log.get("size", "")
-        time = log.get("mtime", log.get("time", ""))
+        time = _fmt_ts(log.get("mtime") or log.get("time"))
         info = f"  · {name}"
         if size:
             info += f" ({size})"
