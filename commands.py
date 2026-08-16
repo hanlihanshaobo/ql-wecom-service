@@ -107,24 +107,14 @@ def process_command(cmd: str, ql: QLClient) -> str:
         return _send_notify(arg, ql)
 
     # ---- 命令管理 ----
-    if action in ("命令", "命令列表", "commands"):
-        return _list_commands(ql, arg)
-    if action in ("新建命令", "add_cmd"):
+    if action in ("运行命令", "exec"):
         if not arg:
-            return "格式：新建命令 <名称> <命令内容>"
-        return _add_command(arg, ql)
-    if action in ("命令详情", "cmd_detail"):
+            return "格式：运行命令 <shell命令>\n示例：运行命令 ql repo https://github.com/user/repo"
+        return _exec_command(arg, ql)
+    if action in ("停止命令", "stop_cmd"):
         if not arg:
-            return "请指定命令ID，例如：命令详情 1"
-        return _cmd_detail(arg, ql)
-    if action in ("运行命令", "run_cmd"):
-        if not arg:
-            return "请指定命令ID，例如：运行命令 1"
-        return _run_command(arg, ql)
-    if action in ("删命令", "del_cmd"):
-        if not arg:
-            return "请指定命令ID，例如：删命令 1"
-        return _del_command(arg, ql)
+            return "格式：停止命令 <pid>\n示例：停止命令 12345"
+        return _stop_exec_command(arg, ql)
 
     # ---- 脚本 ----
     if action in ("脚本", "脚本列表", "scripts"):
@@ -863,77 +853,39 @@ def _del_log(arg: str, ql: QLClient) -> str:
     return f"❌ 删除失败：{result}"
 
 
-# ==================== 命令管理 ====================
+# ==================== 命令管理（运行/停止命令） ====================
 
-def _list_commands(ql: QLClient, search: str = "") -> str:
-    """命令列表 + 操作提示"""
-    cmds = ql.list_commands(search or None)
-    if not cmds:
-        return "📄 暂无命令\n\n💡 回复 新建命令 <名称> <命令内容> 添加命令"
-    lines = [f"📄 命令列表（共 {len(cmds)} 个）："]
-    for c in cmds:
-        name = c.get("name") or "(无名称)"
-        command = c.get("command", "")
-        cid = c.get("id", "?")
-        lines.append(f"  [{cid}] {name}")
-        lines.append(f"      {command}")
-    lines.append("\n💡 回复指令：")
-    lines.append("  命令详情 <ID>      查看命令详情")
-    lines.append("  运行命令 <ID>      运行命令")
-    lines.append("  删命令 <ID>        删除命令")
-    lines.append("  新建命令 <名称> <内容>  添加命令")
-    return "\n".join(lines)
-
-
-def _cmd_detail(arg: str, ql: QLClient) -> str:
-    """命令详情"""
-    cmd = ql.get_command(arg.strip())
-    if not cmd:
-        return f"未找到命令：{arg}"
-    return (
-        f"📄 命令详情\n"
-        f"名称: {cmd.get('name', '')}\n"
-        f"ID: {cmd.get('id', '')}\n"
-        f"内容: {cmd.get('command', '')}\n"
-        f"描述: {cmd.get('description') or '无'}\n"
-        f"创建时间: {cmd.get('createTime') or '未知'}"
-    )
-
-
-def _add_command(arg: str, ql: QLClient) -> str:
-    """新建命令：新建命令 <名称> <命令内容>"""
-    parts = arg.split(None, 1)
-    if len(parts) < 2:
-        return "格式：新建命令 <名称> <命令内容>\n示例：新建命令 拉库 ql repo https://github.com/user/repo"
-    name, command = parts[0], parts[1]
-    result = ql.create_command({"name": name, "command": command})
+def _exec_command(arg: str, ql: QLClient) -> str:
+    """运行命令：运行命令 <shell命令>（PUT /system/command-run）"""
+    try:
+        result = ql.run_command(arg)
+    except Exception as e:
+        return f"❌ 执行失败：{e}"
     if result.get("code") == 200:
-        return f"✅ 命令已创建：{name}"
-    return f"❌ 创建失败：{result.get('msg', '未知错误')}"
+        lines = ["✅ 命令已执行"]
+        pid = result.get("pid")
+        if pid:
+            lines.append(f"  PID: {pid}")
+        output = str(result.get("data") or "")
+        if output.strip():
+            out = output.strip()
+            if len(out) > 500:
+                out = out[:500] + "\n  ...（输出过长已截断）"
+            lines.append(f"输出：\n{out}")
+        return "\n".join(lines)
+    return f"❌ 执行失败：{result.get('msg', '未知错误')}"
 
 
-def _run_command(arg: str, ql: QLClient) -> str:
-    """运行命令"""
-    cmd_id = arg.strip()
-    cmd = ql.get_command(cmd_id)
-    if not cmd:
-        return f"未找到命令：{cmd_id}"
-    result = ql.run_command_by_id(cmd_id)
+def _stop_exec_command(arg: str, ql: QLClient) -> str:
+    """停止命令：停止命令 <pid>（PUT /system/command-stop）"""
+    arg = arg.strip()
+    if arg.isdigit():
+        result = ql.stop_command(pid=int(arg))
+    else:
+        result = ql.stop_command(command=arg)
     if result.get("code") == 200:
-        return f"✅ 已开始运行：{cmd.get('name', cmd_id)}\n执行情况可在 命令详情 中查看"
-    return f"❌ 运行失败：{result.get('msg', '未知错误')}"
-
-
-def _del_command(arg: str, ql: QLClient) -> str:
-    """删除命令"""
-    cmd_id = arg.strip()
-    cmd = ql.get_command(cmd_id)
-    if not cmd:
-        return f"未找到命令：{cmd_id}"
-    result = ql.delete_commands([cmd_id])
-    if result.get("code") == 200:
-        return f"✅ 命令已删除：{cmd.get('name', cmd_id)}"
-    return f"❌ 删除失败：{result.get('msg', '未知错误')}"
+        return f"🛑 已发送停止指令：{arg}"
+    return f"❌ 停止失败：{result.get('msg', '未知错误')}"
 
 
 # ==================== 系统指令补充 ====================
@@ -1046,11 +998,8 @@ def help_text() -> str:
         "  日志详情 <文件名>\n"
         "  删除日志 <文件名>\n"
         "── 命令管理 ──\n"
-        "  命令 / 命令列表\n"
-        "  新建命令 <名称> <命令内容>\n"
-        "  命令详情 <ID>\n"
-        "  运行命令 <ID>\n"
-        "  删命令 <ID>\n"
+        "  运行命令 <shell命令>   执行任意命令\n"
+        "  停止命令 <pid>         停止命令\n"
         "── 系统 ──\n"
         "  系统\n"
         "  系统配置\n"

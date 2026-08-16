@@ -465,11 +465,15 @@ class QLClient:
     def run_command(self, command):
         resp = self._client.put("/open/system/command-run", json={"command": command})
         resp.raise_for_status()
-        # command-run 返回 octet-stream，不是 JSON
+        # command-run 返回 octet-stream，不是 JSON；任务 PID 在响应头 QL-Task-Pid
+        pid = resp.headers.get("QL-Task-Pid", "")
         try:
-            return resp.json()
+            data = resp.json()
         except Exception:
-            return {"code": 200, "data": resp.text}
+            data = {"code": 200, "data": resp.text}
+        if pid:
+            data["pid"] = pid
+        return data
 
     def stop_command(self, command=None, pid=None):
         body = {}
@@ -596,38 +600,3 @@ class QLClient:
         if log_type:
             body["type"] = log_type
         return self._delete("/open/logs", data=body)
-
-    # ==================================================================
-    # 命令管理  /commands
-    # ==================================================================
-
-    def list_commands(self, search=None):
-        """命令列表（可选按关键词搜索）"""
-        params = {"searchValue": search} if search else {}
-        data = self._get("/open/commands", params=params)
-        return data.get("data", []) if data.get("code") == 200 else []
-
-    def get_command(self, cmd_id):
-        """命令详情"""
-        data = self._get(f"/open/commands/{cmd_id}")
-        return data.get("data") if data.get("code") == 200 else None
-
-    def create_command(self, cmd_data):
-        """新建命令：{command, name, description?}"""
-        return self._post("/open/commands", data=cmd_data)
-
-    def update_command(self, cmd_data):
-        """更新命令：{id, command, name, description?}"""
-        return self._put("/open/commands", data=cmd_data)
-
-    def delete_commands(self, ids):
-        """删除命令：ids 为 id 列表"""
-        return self._delete("/open/commands", data=ids)
-
-    def run_command_by_id(self, cmd_id):
-        """运行命令：PUT /commands/run body {id}"""
-        return self._put("/open/commands/run", data={"id": cmd_id})
-
-    def stop_command_by_id(self, cmd_id):
-        """停止命令：PUT /commands/stop body {id}"""
-        return self._put("/open/commands/stop", data={"id": cmd_id})

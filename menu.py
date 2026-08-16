@@ -10,7 +10,7 @@ import httpx
 from commands import (
     list_tasks, list_envs, list_subscriptions, list_scripts,
     system_info, help_text, _list_deps, _list_configs, _list_logs,
-    run_custom_script, list_running_tasks, _list_commands,
+    run_custom_script, list_running_tasks,
 )
 from settings import settings
 
@@ -214,8 +214,15 @@ def _sys_ops(ql_client) -> str:
 
 
 def _cmd_ops(ql_client) -> str:
-    """命令列表 + 操作提示"""
-    return _list_commands(ql_client, "")
+    """命令执行提示（运行/停止命令）"""
+    return (
+        "⚙ 命令管理：\n"
+        "  运行命令 <shell命令>   执行任意命令\n"
+        "  停止命令 <pid>         停止命令\n\n"
+        "示例：\n"
+        "  运行命令 ql repo https://github.com/user/repo\n"
+        "  停止命令 12345"
+    )
 
 
 def _config_hint(ql_client) -> str:
