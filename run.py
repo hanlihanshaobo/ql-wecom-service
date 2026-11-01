@@ -1,10 +1,18 @@
+import logging
+
 import uvicorn
-from settings import settings
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+
+from jbot.config import settings  # noqa: E402
 
 if __name__ == "__main__":
     uvicorn.run(
-        "app:app",
-        host="0.0.0.0",
+        "jbot.server:app",
+        host=settings.callback.host,
         port=settings.callback.port,
-        workers=2,
+        workers=1,
     )
