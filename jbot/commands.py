@@ -971,6 +971,7 @@ def _export_data(ql: QLClient) -> str:
 def help_text() -> str:
     return (
         "📌 支持指令：\n"
+        "💡 发送「菜单」打开按钮操作面板\n"
         "💡 <任务名> 可用序号代替，如 执行 1\n"
         "── 任务管理 ──\n"
         "  任务 / 任务列表\n"

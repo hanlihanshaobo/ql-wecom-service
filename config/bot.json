@@ -9,7 +9,7 @@
     "ws_url": "wss://openws.work.weixin.qq.com",
     "heartbeat_interval": 30,
     "max_reconnect_attempts": -1,
-    "welcome_message": "发送「帮助」查看可用指令"
+    "welcome_message": "发送「菜单」打开操作面板，或直接发送指令"
   },
   "qinglong": {
     "_comment": "插件与青龙面板在同一容器，通常无需修改；客户端 ID/Secret 在青龙 系统设置 → 应用设置 创建",

@@ -15,6 +15,7 @@ from typing import Any
 
 import websockets
 
+from .cards import MENU_ACTIONS, menu_card, more_card
 from .commands import process_command
 from .config import Settings
 from .ql_client import QLClient
@@ -27,6 +28,8 @@ CMD_MSG_CALLBACK = "aibot_msg_callback"
 CMD_EVENT_CALLBACK = "aibot_event_callback"
 CMD_RESPOND_MSG = "aibot_respond_msg"
 CMD_RESPOND_WELCOME = "aibot_respond_welcome_msg"
+CMD_RESPOND_UPDATE = "aibot_respond_update_msg"
+CMD_SEND_MSG = "aibot_send_msg"
 CMD_PING = "ping"
 
 DEFAULT_WS_URL = "wss://openws.work.weixin.qq.com"
@@ -254,6 +257,14 @@ class WeComBot:
                 },
                 cmd=CMD_RESPOND_WELCOME,
             )
+            await self._send_card_to_chat(body, menu_card())
+            return
+
+        if event_type == "template_card_event":
+            event_data = event.get("template_card_event", {}) or {}
+            if not isinstance(event_data, dict):
+                event_data = {}
+            await self._handle_menu_event(frame, body, event_data)
             return
 
         if event_type == "disconnected_event":
@@ -311,6 +322,10 @@ class WeComBot:
         if not content:
             content = "帮助"
 
+        if content.lower() in ("菜单", "menu", "面板", "操作面板", "打开菜单", "开始", "start"):
+            await self._reply_card(frame, menu_card())
+            return
+
         try:
             def run_command() -> str:
                 return process_command(content, _make_ql(self.settings))
@@ -322,6 +337,131 @@ class WeComBot:
 
         logger.info("处理结果: %s", result[:100] if result else "EMPTY")
         await self._reply_text(frame, result or "✅ 操作完成")
+
+    async def _handle_menu_event(self, frame: dict, body: dict, event_data: dict) -> None:
+        key = str(event_data.get("event_key") or event_data.get("eventkey") or "")
+        from_user = self._from_user(body)
+        allowed = self.settings.bot.allowed_users
+        if allowed and from_user not in allowed:
+            logger.warning("未授权用户点击菜单: %s", from_user)
+            await self._update_card(frame, menu_card(desc="⛔ 无权限使用此机器人"))
+            return
+
+        if key == "menu:more":
+            await self._update_card(frame, more_card())
+            return
+        if key == "menu:home":
+            await self._update_card(frame, menu_card())
+            return
+
+        action = MENU_ACTIONS.get(key)
+        if not action:
+            logger.warning("未知菜单按钮: %s", key)
+            await self._update_card(frame, menu_card(desc=f"未知操作：{key}"))
+            return
+
+        label, command, hint = action
+        logger.info("菜单点击: key=%s, label=%s, user=%s", key, label, from_user)
+        # 5 秒内先更新卡片，避免模板卡片事件超时
+        await self._update_card(frame, menu_card(desc=f"正在执行：{label}..."))
+
+        task = asyncio.create_task(self._run_menu_action(body, command, hint))
+        self._message_tasks.add(task)
+        task.add_done_callback(self._message_tasks.discard)
+
+    async def _run_menu_action(self, body: dict, command: str, hint: str) -> None:
+        try:
+            def run_command() -> str:
+                return process_command(command, _make_ql(self.settings))
+
+            result = await asyncio.to_thread(run_command)
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("菜单指令执行失败: %s", exc)
+            result = f"❌ 操作失败：{exc}\n\n请检查青龙面板连接是否正常"
+
+        content = result or "✅ 操作完成"
+        if hint:
+            content = f"{content}\n\n{hint}"
+        await self._send_markdown_to_chat(body, content)
+
+    async def _reply_card(self, frame: dict, card: dict) -> None:
+        await self._reply(
+            frame,
+            {"msgtype": "template_card", "template_card": card},
+        )
+
+    async def _update_card(self, frame: dict, card: dict) -> None:
+        await self._reply(
+            frame,
+            {"response_type": "update_template_card", "template_card": card},
+            cmd=CMD_RESPOND_UPDATE,
+        )
+
+    async def _send_card_to_chat(self, body: dict, card: dict) -> None:
+        target = self._chat_target(body)
+        if target is None:
+            return
+        chatid, chat_type = target
+        try:
+            await self._send(
+                {
+                    "cmd": CMD_SEND_MSG,
+                    "headers": {"req_id": _req_id("send")},
+                    "body": {
+                        "chatid": chatid,
+                        "chat_type": chat_type,
+                        "msgtype": "template_card",
+                        "template_card": card,
+                    },
+                }
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.error("发送菜单卡片失败: %s", exc)
+
+    async def _send_markdown_to_chat(self, body: dict, content: str) -> None:
+        target = self._chat_target(body)
+        if target is None:
+            logger.warning("缺少会话目标，无法主动发送结果")
+            return
+        chatid, chat_type = target
+
+        chunks = split_text(content, 1800)
+        if len(chunks) > MAX_REPLY_CHUNKS:
+            chunks = chunks[:MAX_REPLY_CHUNKS]
+            chunks[-1] += "\n\n…（内容过长，已截断）"
+        if not chunks:
+            chunks = ["✅ 操作完成"]
+
+        for chunk in chunks:
+            try:
+                await self._send(
+                    {
+                        "cmd": CMD_SEND_MSG,
+                        "headers": {"req_id": _req_id("send")},
+                        "body": {
+                            "chatid": chatid,
+                            "chat_type": chat_type,
+                            "msgtype": "markdown",
+                            "markdown": {"content": chunk},
+                        },
+                    }
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.error("发送菜单结果失败: %s", exc)
+                break
+
+    def _from_user(self, body: dict) -> str:
+        sender = body.get("from", {})
+        if not isinstance(sender, dict):
+            return ""
+        return str(sender.get("userid", ""))
+
+    def _chat_target(self, body: dict) -> tuple[str, int] | None:
+        chatid = str(body.get("chatid") or self._from_user(body) or "")
+        if not chatid:
+            return None
+        chat_type = 2 if body.get("chattype") == "group" else 1
+        return chatid, chat_type
 
     async def _reply_text(self, frame: dict, content: str) -> None:
         chunks = split_text(content, 1800)

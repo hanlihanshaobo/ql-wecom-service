@@ -164,7 +164,7 @@ class WeComBotConfig:
     ws_url: str = "wss://openws.work.weixin.qq.com"
     heartbeat_interval: int = 30
     max_reconnect_attempts: int = -1
-    welcome_message: str = "发送「帮助」查看可用指令"
+    welcome_message: str = "发送「菜单」打开操作面板，或直接发送指令"
 
     @property
     def configured(self) -> bool:
@@ -290,7 +290,7 @@ def load_settings() -> Settings:
                 default=_value(
                     wecom_bot_data,
                     "welcome_message",
-                    "发送「帮助」查看可用指令",
+                    "发送「菜单」打开操作面板，或直接发送指令",
                 ),
             ),
         ),
