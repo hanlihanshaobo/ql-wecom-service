@@ -156,6 +156,22 @@ class WecomConfig:
 
 
 @dataclass
+class WeComBotConfig:
+    """企业微信智能机器人（长连接 API 模式）。"""
+
+    bot_id: str = ""
+    secret: str = ""
+    ws_url: str = "wss://openws.work.weixin.qq.com"
+    heartbeat_interval: int = 30
+    max_reconnect_attempts: int = -1
+    welcome_message: str = "发送「帮助」查看可用指令"
+
+    @property
+    def configured(self) -> bool:
+        return bool(self.bot_id and self.secret)
+
+
+@dataclass
 class CallbackConfig:
     host: str = "0.0.0.0"
     port: int = 3000
@@ -186,6 +202,7 @@ class BotConfig:
 @dataclass
 class Settings:
     wecom: WecomConfig = field(default_factory=WecomConfig)
+    wecom_bot: WeComBotConfig = field(default_factory=WeComBotConfig)
     callback: CallbackConfig = field(default_factory=CallbackConfig)
     ql: QLConfig = field(default_factory=QLConfig)
     bot: BotConfig = field(default_factory=BotConfig)
@@ -197,6 +214,7 @@ def load_settings() -> Settings:
     data, config_file = _load_config_file()
 
     wecom_data = _section(data, "wecom", "we_com")
+    wecom_bot_data = _section(data, "wecom_bot", "aibot", "bot_connection")
     callback_data = _section(data, "callback", "server")
     ql_data = _section(data, "qinglong", "ql")
     bot_data = _section(data, "bot")
@@ -234,6 +252,46 @@ def load_settings() -> Settings:
             api_base=_env(
                 "WE_COM_API_BASE",
                 default=_value(wecom_data, "api_base", DEFAULT_API_BASE),
+            ),
+        ),
+        wecom_bot=WeComBotConfig(
+            bot_id=_env(
+                "WECOM_BOT_ID",
+                "WECHAT_BOT_ID",
+                default=_value(wecom_bot_data, "bot_id"),
+            ),
+            secret=_env(
+                "WECOM_BOT_SECRET",
+                "WECHAT_BOT_SECRET",
+                default=_value(wecom_bot_data, "secret"),
+            ),
+            ws_url=_env(
+                "WECOM_BOT_WS_URL",
+                default=_value(
+                    wecom_bot_data, "ws_url", "wss://openws.work.weixin.qq.com"
+                ),
+            ),
+            heartbeat_interval=_as_int(
+                _env(
+                    "WECOM_BOT_HEARTBEAT",
+                    default=_value(wecom_bot_data, "heartbeat_interval"),
+                ),
+                30,
+            ),
+            max_reconnect_attempts=_as_int(
+                _env(
+                    "WECOM_BOT_MAX_RECONNECT_ATTEMPTS",
+                    default=_value(wecom_bot_data, "max_reconnect_attempts"),
+                ),
+                -1,
+            ),
+            welcome_message=_env(
+                "BOT_WELCOME_MESSAGE",
+                default=_value(
+                    wecom_bot_data,
+                    "welcome_message",
+                    "发送「帮助」查看可用指令",
+                ),
             ),
         ),
         callback=CallbackConfig(
@@ -296,23 +354,6 @@ def load_settings() -> Settings:
         config_file=str(config_file) if config_file else "",
     )
 
-    if not settings.wecom.configured:
-        logger.warning(
-            "企业微信配置不完整：请在 %s 或环境变量中设置 "
-            "WE_COM_CORP_ID / WE_COM_AGENT_ID / WE_COM_CORP_SECRET",
-            config_file or BASE_DIR / "config" / "bot.json",
-        )
-    if not settings.wecom.plain_mode:
-        if not settings.wecom.encoding_aes_key:
-            logger.error(
-                "WE_COM_ENCRYPT_MODE 为 SAFETY，但未设置 encoding_aes_key；"
-                "企业微信回调将无法解密"
-            )
-        if not settings.callback.token:
-            logger.error(
-                "WE_COM_ENCRYPT_MODE 为 SAFETY，但未设置 callback.token；"
-                "企业微信回调签名校验将失败"
-            )
     return settings
 
 

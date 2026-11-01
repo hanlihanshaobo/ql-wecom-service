@@ -1,13 +1,16 @@
-"""青龙面板机器人插件入口：python3 -m jbot。"""
+"""青龙面板机器人插件入口：python3 -m jbot。
+
+通过企业微信智能机器人「API 模式 → 长连接」接收消息，
+不需要公网回调地址、端口映射或反向代理。
+"""
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import sys
 from pathlib import Path
-
-import uvicorn
 
 from . import __version__
 
@@ -47,23 +50,41 @@ def _setup_logging() -> None:
 def main() -> int:
     _setup_logging()
     logger = logging.getLogger("wecom")
-    logger.info("启动青龙企业微信机器人插件 v%s", __version__)
-    try:
-        from .config import settings
-        from .server import app
+    logger.info("启动青龙企业微信智能机器人插件 v%s", __version__)
 
-        uvicorn.run(
-            app,
-            host=settings.callback.host,
-            port=settings.callback.port,
-            log_level="info",
-            access_log=False,
+    from .config import settings
+
+    if not settings.wecom_bot.configured:
+        logger.error(
+            "未配置企业微信智能机器人 BotID / Secret，"
+            "请编辑 %s 的 wecom_bot 节点",
+            settings.config_file or "config/bot.json",
         )
+        return 1
+
+    if not (settings.ql.client_id and settings.ql.client_secret):
+        logger.warning(
+            "青龙 OpenAPI 客户端未配置：请在 %s 的 qinglong 节点填写 "
+            "client_id / client_secret（青龙 系统设置 → 应用设置）",
+            settings.config_file or "config/bot.json",
+        )
+
+    from .bot_ws import WeComBot
+
+    async def run() -> None:
+        bot = WeComBot(settings)
+        try:
+            await bot.run()
+        finally:
+            await bot.stop()
+
+    try:
+        asyncio.run(run())
     except KeyboardInterrupt:
         logger.info("收到退出信号，机器人已停止")
         return 0
     except Exception as exc:  # noqa: BLE001
-        logger.exception("机器人启动失败: %s", exc)
+        logger.exception("机器人运行失败: %s", exc)
         return 1
     return 0
 

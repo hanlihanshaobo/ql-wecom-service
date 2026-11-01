@@ -159,16 +159,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 settings.callback.path,
             )
         logger.info("青龙 API: %s", settings.ql.base_url)
-        if not (settings.ql.client_id and settings.ql.client_secret):
+        if not settings.wecom.configured:
             logger.warning(
-                "青龙 OpenAPI 客户端未配置：请在 config/bot.json 的 qinglong 节点填写 "
-                "client_id / client_secret（青龙 系统设置 → 应用设置）"
+                "旧版自建应用模式配置不完整：请设置 "
+                "WE_COM_CORP_ID / WE_COM_AGENT_ID / WE_COM_CORP_SECRET"
             )
-        if settings.wecom.plain_mode and not settings.callback.secret:
-            logger.warning(
-                "明文回调模式未设置 callback.secret：任何能访问回调 URL 的人都可以调用机器人。"
-                "建议改用 SAFETY 加密模式，或设置 callback.secret 并在回调 URL 后追加 ?secret=..."
-            )
+        if not settings.wecom.plain_mode and not settings.wecom.encoding_aes_key:
+            logger.error("SAFETY 模式缺少 encoding_aes_key，回调无法解密")
         if settings.wecom.configured:
             try:
                 await asyncio.to_thread(wecom.create_menu, MENU)

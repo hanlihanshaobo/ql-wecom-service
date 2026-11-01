@@ -5,12 +5,14 @@ from jbot.config import (  # noqa: F401
     CallbackConfig,
     QLConfig,
     Settings,
+    WeComBotConfig,
     WecomConfig,
     settings,
 )
 
 __all__ = [
     "WecomConfig",
+    "WeComBotConfig",
     "CallbackConfig",
     "QLConfig",
     "BotConfig",

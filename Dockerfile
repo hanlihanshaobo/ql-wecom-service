@@ -16,6 +16,5 @@ RUN apt-get update \
 # 复制源码
 COPY . .
 
-EXPOSE 3000
-
-CMD ["python", "run.py"]
+# 智能机器人长连接模式，无需暴露 HTTP 端口
+CMD ["python", "-m", "jbot"]

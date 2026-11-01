@@ -693,7 +693,7 @@ def run_custom_script(ql: QLClient) -> str:
     """运行 .env 中 CUSTOM_SCRIPT_FILENAME 指定的脚本"""
     filename = settings.bot.custom_script_filename
     if not filename:
-        return "⚠ 未配置自定义脚本，请在 .env 中设置 CUSTOM_SCRIPT_FILENAME"
+        return "⚠ 未配置自定义脚本，请在 config/bot.json 的 bot 节点设置 custom_script_filename"
     path = settings.bot.custom_script_path or None
 
     # 先查找脚本是否存在于青龙列表（传入 path 以搜索子目录）

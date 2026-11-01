@@ -1,24 +1,15 @@
 {
-  "version": 2,
-  "type": "wecom",
+  "version": 3,
+  "type": "wecom-aibot",
   "_comment": "青龙面板机器人插件配置。修改后执行 ql bot 重启机器人。",
-  "wecom": {
-    "_comment": "企业微信 → 应用管理 → 自建应用；可信 IP 需加入青龙所在服务器的公网 IP",
-    "corp_id": "",
-    "agent_id": "",
-    "corp_secret": "",
-    "encoding_aes_key": "",
-    "encrypt_mode": "SAFETY",
-    "api_base": "https://qyapi.weixin.qq.com"
-  },
-  "callback": {
-    "_comment": "企业微信 → 应用 → 接收消息 → API 接收；URL 填 https://你的域名/wecom/callback（明文模式建议追加 ?secret=...）",
-    "host": "0.0.0.0",
-    "port": 3000,
-    "path": "/wecom/callback",
-    "token": "",
+  "wecom_bot": {
+    "_comment": "企业微信管理后台 → 管理工具 → 智能机器人 → 创建机器人 → API 模式 → 长连接；无需公网回调地址",
+    "bot_id": "",
     "secret": "",
-    "public_url": "https://your.domain.com"
+    "ws_url": "wss://openws.work.weixin.qq.com",
+    "heartbeat_interval": 30,
+    "max_reconnect_attempts": -1,
+    "welcome_message": "发送「帮助」查看可用指令"
   },
   "qinglong": {
     "_comment": "插件与青龙面板在同一容器，通常无需修改；客户端 ID/Secret 在青龙 系统设置 → 应用设置 创建",
