@@ -272,21 +272,21 @@ docker compose logs -f
 
 Docker 模式不需要暴露任何端口。
 
-## 分支安装（不合并 main）
+## 分支说明
 
-青龙 `ql bot` 固定克隆 `BotRepoUrl` 的 `main` 分支，**不能直接指定其他分支**。如果你想把智能机器人单独放在一个分支，有三种做法：
+当前仓库分支：
 
-### 方式 A：合并到 main（最稳定）
+| 分支 | 内容 |
+|------|------|
+| `main` | 企业微信智能机器人 API 模式（WebSocket 长连接），推荐使用 |
+| `legacy-wecom-app` | 旧版企业微信自建应用回调模式，仅作备份 |
+| `feat/qinglong-bot-plugin` | 智能机器人功能的开发分支，与 main 当前内容一致 |
 
-```bash
-git checkout main
-git merge feat/qinglong-bot-plugin
-git push origin main
-```
+青龙 `ql bot` 固定克隆 `BotRepoUrl` 的 `main` 分支，所以正式使用直接让 `BotRepoUrl` 指向本仓库即可，**不需要额外指定分支**。
 
-之后按上面的 `ql bot` 方式安装即可。旧版本可以保留在 `legacy` 分支。
+如果以后要把智能机器人放到独立分支测试，可以：
 
-### 方式 B：单独建一个仓库（推荐做独立项目）
+### 方式 A：单独建一个仓库（推荐做独立项目）
 
 新建一个仓库（例如 `ql-wecom-bot`），把 `jbot/`、`config/bot.json`、`scripts/`、`requirements.txt` 放到该仓库的 `main` 分支，然后：
 
@@ -295,9 +295,7 @@ BotRepoUrl="https://github.com/你的用户名/ql-wecom-bot"
 ql bot
 ```
 
-这样智能机器人项目单独维护，不会和旧的应用版本混在一起。
-
-### 方式 C：用安装脚本指定分支
+### 方式 B：用安装脚本指定分支
 
 不合并 main、也不新建仓库时，使用本仓库的安装脚本直接拉取指定分支：
 
@@ -312,7 +310,7 @@ docker exec -it qinglong bash /tmp/ql-wecom-service/scripts/install-ql-bot.sh \
 
 脚本会拉取指定分支、安装依赖、复制到 `/ql/data/jbot` 并重启机器人。
 
-> ⚠️ 使用分支安装时不要设置 `AutoStartBot="true"`。青龙启动时会执行 `ql bot`，默认安装 `main` 分支并覆盖插件。需要开机自启时，可以在 `extra.sh` 里调用上面的安装脚本，或改用方式 A/B。
+> ⚠️ 使用分支安装时不要设置 `AutoStartBot="true"`。青龙启动时会执行 `ql bot`，默认安装 `main` 分支并覆盖插件。需要开机自启时，可以在 `extra.sh` 里调用上面的安装脚本，或把分支合并到 main。
 
 ## 当前目录手动安装
 
@@ -356,7 +354,7 @@ ql-wecom-service/
 │   ├── requirements.txt     # 插件依赖
 │   └── ...                  # 旧版自建应用回调代码（不再作为默认入口）
 ├── config/bot.json          # 青龙机器人插件配置模板
-├── scripts/install-ql-bot.sh # 当前分支手动安装脚本
+├── scripts/install-ql-bot.sh # 手动安装脚本（可指定分支）
 ├── app.py                   # 旧版自建应用回调入口（可选）
 ├── run.py                   # 本地开发入口（长连接）
 ├── Dockerfile               # Docker 镜像（长连接模式）
