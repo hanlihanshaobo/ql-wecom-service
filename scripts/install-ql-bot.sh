@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 #
-# 手动把当前仓库安装为青龙面板机器人插件。
+# 手动把本仓库（或指定分支/仓库）安装为青龙面板机器人插件。
 #
 # 适用场景：功能分支尚未合并到 main，无法直接通过 `ql bot` + BotRepoUrl 安装。
 # 合并到 main 后，推荐直接使用青龙自带的 `ql bot`。
+#
+# 用法：
+#   ./scripts/install-ql-bot.sh
+#   ./scripts/install-ql-bot.sh --repo https://github.com/user/repo --branch feat/wecom-ai-bot
 #
 set -euo pipefail
 
@@ -11,6 +15,79 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 QL_DIR="${QL_DIR:-/ql}"
 QL_DATA_DIR="${QL_DATA_DIR:-${QL_DIR}/data}"
 QL_LOG_DIR="${QL_LOG_DIR:-${QL_DATA_DIR}/log}"
+REPO_URL=""
+BRANCH=""
+SOURCE_DIR="${REPO_DIR}"
+TEMP_DIR=""
+
+usage() {
+  cat <<'EOF'
+用法: install-ql-bot.sh [选项]
+
+选项:
+  --repo <url>      从指定 Git 仓库安装（默认使用当前脚本所在目录）
+  --branch <name>   指定分支，需配合 --repo 使用
+  -h, --help        显示帮助
+
+示例:
+  ./scripts/install-ql-bot.sh
+  ./scripts/install-ql-bot.sh --repo https://github.com/hanlihanshaobo/ql-wecom-service --branch feat/qinglong-bot-plugin
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --repo)
+      [[ $# -ge 2 ]] || { echo "❌ --repo 需要参数" >&2; exit 1; }
+      REPO_URL="$2"
+      shift 2
+      ;;
+    --branch)
+      [[ $# -ge 2 ]] || { echo "❌ --branch 需要参数" >&2; exit 1; }
+      BRANCH="$2"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "❌ 未知参数: $1" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+done
+
+cleanup() {
+  if [[ -n "${TEMP_DIR}" && -d "${TEMP_DIR}" ]]; then
+    rm -rf "${TEMP_DIR}"
+  fi
+}
+trap cleanup EXIT
+
+if [[ -n "${REPO_URL}" ]]; then
+  if ! command -v git >/dev/null 2>&1; then
+    echo "❌ 需要 git 才能从仓库安装" >&2
+    exit 1
+  fi
+  TEMP_DIR="$(mktemp -d)"
+  echo "➜ 拉取 ${REPO_URL}${BRANCH:+ (分支: ${BRANCH})} ..."
+  if [[ -n "${BRANCH}" ]]; then
+    git clone --depth=1 --branch "${BRANCH}" -- "${REPO_URL}" "${TEMP_DIR}/repo"
+  else
+    git clone --depth=1 -- "${REPO_URL}" "${TEMP_DIR}/repo"
+  fi
+  SOURCE_DIR="${TEMP_DIR}/repo"
+elif [[ -n "${BRANCH}" ]]; then
+  echo "❌ --branch 需要配合 --repo 使用" >&2
+  exit 1
+fi
+
+if [[ ! -f "${SOURCE_DIR}/jbot/requirements.txt" || ! -f "${SOURCE_DIR}/config/bot.json" ]]; then
+  echo "❌ 安装源缺少 jbot/requirements.txt 或 config/bot.json: ${SOURCE_DIR}" >&2
+  exit 1
+fi
 
 if [[ ! -d "${QL_DATA_DIR}" ]]; then
   echo "❌ 未找到青龙数据目录: ${QL_DATA_DIR}" >&2
@@ -24,17 +101,17 @@ if ! command -v python3 >/dev/null 2>&1 || ! command -v pip3 >/dev/null 2>&1; th
 fi
 
 echo "➜ 安装 Python 依赖..."
-pip3 install --default-timeout=100 -r "${REPO_DIR}/jbot/requirements.txt"
+pip3 install --default-timeout=100 -r "${SOURCE_DIR}/jbot/requirements.txt"
 
 echo "➜ 复制插件代码到 ${QL_DATA_DIR}/jbot ..."
 rm -rf "${QL_DATA_DIR}/jbot.new"
-cp -a "${REPO_DIR}/jbot" "${QL_DATA_DIR}/jbot.new"
+cp -a "${SOURCE_DIR}/jbot" "${QL_DATA_DIR}/jbot.new"
 rm -rf "${QL_DATA_DIR}/jbot"
 mv "${QL_DATA_DIR}/jbot.new" "${QL_DATA_DIR}/jbot"
 
 mkdir -p "${QL_DATA_DIR}/config" "${QL_LOG_DIR}/bot"
 if [[ ! -f "${QL_DATA_DIR}/config/bot.json" ]]; then
-  cp "${REPO_DIR}/config/bot.json" "${QL_DATA_DIR}/config/bot.json"
+  cp "${SOURCE_DIR}/config/bot.json" "${QL_DATA_DIR}/config/bot.json"
   chmod 600 "${QL_DATA_DIR}/config/bot.json"
   echo "➜ 已生成配置: ${QL_DATA_DIR}/config/bot.json"
 else
